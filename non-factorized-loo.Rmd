@@ -1,0 +1,322 @@
+---
+title: "Leave-one-out cross-validation for non-factorized models"
+author: Aki Vehtari & Paul Buerkner
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache=TRUE, message=FALSE, error=FALSE, 
+  warning=FALSE, comment=NA, out.width='95%'
+)
+```
+
+## Introduction
+
+For the computation of approximate leave-one-out cross-validation (LOO-CV) one needs to compute the *pointwise* log-likelihood of every response value $y_i$ where $i$ indicates observations. This is straight-forward for *factorized* models in which response values are conditionally independent given the parameters $\theta$:
+$$
+p(y_i, y_j | \theta) = p(y_i | \theta) p(y_j | \theta) \qquad (i \neq j)
+$$
+Here, as well as in the following, $p$ denotes probability density or mass functions depending on whether we are dealing with continuous or discrete random variables. In factorized models, the pointwise log-likelihood is simply given by $\log p(y_i | \theta)$.
+
+Unfortunately, the situation becomes much more complicated when response values are not conditionally independent, and instead have residual dependency after taking the model parameters $\theta$ into account. The pointwise log-likelihood of such *non-factorized* models has the general form $\log p(y_i | y_{-i}, \theta)$, where $y_{-i}$ denotes all reponses values without the value of observation $i$.
+
+## LOO-CV for multivariate normal models
+
+Computing the pointwise log-likelihood for non-factorized models is not always possible but for the large class of multivariate normal models it fortunately is. The necessary equations were initially derived by Sundararajan and Keerthi (2001) who focussed on the special case of a normal zero-mean Gaussian process model with covariance kernal $K$ and residual standard deviation $\sigma$:
+$$
+y \sim N(0, C = K+\sigma^2 I)
+$$
+where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an abitrary covariances matrix $C$ and so we directly consider this general case. The LOO predictive mean and standard deviation can be computed as follows:
+\begin{align}
+  \mu_{\tilde{y},-i} & = y_i-\bar{c}_{ii}^{-1}g_i \nonumber \\
+  \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}}
+\end{align}
+where 
+\begin{align}
+  g_i &= \left[C^{-1}y\right]_i \nonumber \\
+  \bar{c}_{ii} &= \left[C^{-1}\right]_{ii}.
+\end{align}
+
+The log predictive density of observation $i$ is then computed as
+$$
+  \log p(y_i|y_{-i},\theta)
+  = - \frac{1}{2}\log(2\pi) 
+  - \frac{1}{2}\log \sigma^2_{-i} 
+  - \frac{1}{2}\frac{(y_i-\mu_{-i})^2}{\sigma^2_{-i}}.
+$$
+The above equation may also be written as follows:
+$$
+  \log p(y_i|y_{-i},\theta) 
+  = - \frac{1}{2}\log(2\pi) 
+  + \frac{1}{2}\log \bar{c}_{ii} 
+  - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}
+$$
+(note that Vehtari et al. (2016) has a typo in Equation 34). Together, this provides a recipe to obtain the pointwise log-likelihood for all models which can be expressed in terms of a multivariate normal model with some covariance matrix $C$.
+
+### Approximate LOO-CV using importance-sampling
+
+In the computation of exact LOO-CV, we do actually need the log predictive density $\log p(y_i|y_{-i},\theta_{-i})$ instead of $\log p(y_i|y_{-i},\theta)$, where $\theta_{-i}$ denotes the model parameters obtained when leaving out observation $i$. However, this requires to re-fit the model $N$ times, where $N$ is the total number of observations, each time leaving out a single observation. This is often practically infeasible and so we approximate $\log p(y_i|y_{-i},\theta_{-i})$ based on the full model using integrated importance-sampling (Vehtari et al., 2016, Section 3.6.1):
+$$
+\log p(y_i|y_{-i},\theta{-i}) \approx 
+ \sum_{s=1}^S \frac{\log p(y_i|y_{-i}, \theta^{(s)}) w^{(s)}}{w^{(s)}}.
+$$
+Here, $\theta^{(s)}$ $(s=1,\ldots,S)$ are posterior draws of the parameters $\theta$, and $w^{(s)}$ are importance weights of each posterior draw $s$. These importance weights can be computed and stabilized with Pareto-smoothed importance-sampling (PSIS) as explained in Vehtari et al. (2017).
+
+### Exact LOO-CV with re-fit
+
+As stated above, calculation of exact LOO-CV poses a computational burden as the model has to be re-fitted many times. Still, we need it to verify approximations of LOO-CV. For non-factorized models, we have to be careful with simply removing the $i$th observation from the model, because this may alter the prior of the remaining observations (due to the inherent dependeny) and may thus affect the results in an undesireble way. Instead, we have to model $y_i$ as missing and estimate it along with all other model parameters.
+
+In case of multivariate normal models, $\log p(y_i|y_{-i},\theta_{-i})$ can be computed as follows. First, we model $y_i$ as missing and call its estimated value $y_{\mathrm{mis}}$. Then, we define 
+$$
+y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_{\mathrm{mis}}, y_{i+1}, \ldots, y_n).
+$$
+Second, we compute the LOO predictive mean and standard deviations as above, but replace $y$ with $y_{\mathrm{mis}(i)}$ in the computation of $\mu_{\tilde{y},-i}$:
+$$
+\mu_{\tilde{y},-i} = y_{{\mathrm{mis}}(i)}-\bar{c}_{ii}^{-1}g_i,
+$$
+where 
+$$
+g_i = \left[ C^{-1} y_{\mathrm{mis}(i)} \right]_i.
+$$
+The log predictive density is then computed with the above $\mu_{\tilde{y},-i}$ and the left out observation $y_i$
+$$
+  \log p(y_i|y_{-i},\theta)
+  = - \frac{1}{2}\log(2\pi) 
+  - \frac{1}{2}\log \sigma^2_{\tilde{y},-i} 
+  - \frac{1}{2}\frac{(y_i-\mu_{\tilde{y},-i})^2}{\sigma^2_{\tilde{y},-i}}.
+$$
+
+## Lagged SAR models
+
+A common non-factorized multivariate normal model is the simultaneously autoregressive (SAR) model, which is frequently used for spatially correlated data. The lagged SAR model is defined as
+$$
+y = \rho Wy + \eta + \epsilon
+$$
+or equivalently
+$$
+(I - \rho W)y = \eta + \epsilon,
+$$
+where $\rho$ is the spatial correlation parameter and $W$ is a user-defined weight matrix with $w_{ii} = 0$ as well as higher values $w_{ij}$ in the off-diagonal for areas $i$ and $j$ closer to each other. In a linear model, the predictor term $\eta$ is given by $\eta = X \beta$ with design matrix $X$ and regression coefficients $\beta$. However, since the above equation holds for arbitrary $\eta$, there is no need to restrcit ourselves to linear models. If $\epsilon \sim N(0,\sigma^2 I)$, then
+$$
+(I - \rho W)y \sim {\mathrm N}(\eta, \sigma^2 I).
+$$
+
+This corresponds to the following log probability density function coded in **Stan**:
+
+```{r, eval = FALSE}
+/* normal log-pdf for spatially lagged responses 
+ * Args: 
+ *   y: the response vector 
+ *   mu: mean parameter vector
+ *   sigma: residual standard deviation
+ *   rho: positive autoregressive parameter
+ *   W: spatial weight matrix
+ * Returns:  
+ *   a scalar to be added to the log posterior 
+ */ 
+real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
+                        real rho, matrix W) { 
+  matrix[rows(y), rows(y)] W_new;
+  vector[rows(y)] half_pred;
+  real inv_sigma2;
+  W_new = diag_matrix(rep_vector(1.0, rows(y))) - rho * W;
+  half_pred  = W_new * (y - mdivide_left(W_new, mu));
+  inv_sigma2 = 1 / sigma^2;
+  return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) - 
+         0.5 * dot_self(half_pred) * inv_sigma2;
+}
+```
+
+For the purpose of computing LOO-CV, it makes sense to rewrite the SAR model as
+\begin{align}
+y-(I-\rho W)^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(I-\rho W)^{-1}(I-\rho W)^{-T}).
+\end{align}
+or with $\tilde{W}=(I-\rho W)$ more compactly
+\begin{align}
+y-\tilde{W}^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(\tilde{W}^{T}\tilde{W})^{-1}).
+\end{align}
+
+Conditionally on $\rho$, $\eta$, and $\sigma$, this is has the same form as zero mean Gaussian process. Accordingly, we can compute the loo preditictive densities with the equations by Sundarajan and Keerthi (2001) replacing $y$ with $(y-\tilde{W}^{-1}\eta)$ and using $C = \sigma^2(\tilde{W}^{T}\tilde{W})^{-1}$.
+
+## Case Study: Neighborhood Crime in Columbus
+
+As a case study, we will use a data set about the neighborhood crime in Columbus initially described in Aneslin (1988) and shipped with the **spdep** package in R.
+
+```{r}
+data(oldcol, package = "spdep")
+```
+
+Among others, the data contain the number of residential burglaries and vehicle thefts per thousand households in the neighborhood (variable `CRIME`), the housing value `HOVAL` as well as the household income `INC` (both in 1000 USD). In addition, the data set includes the object `COL.nb`, from which the spatial weight matrix of the neighberhoods can be constructed to account for spatial dependency of the observations. For the analysis, we will be using the **brms** package, LOO-CV will be performed by means of the **loo** package and plotting with **ggplot2**.
+
+```{r, cache=FALSE}
+library(brms)
+library(loo)
+library(ggplot2)
+theme_set(theme_default())
+```
+
+A model predicting `CRIME` with `INC` and `HOVAL`, while accounting for the spatial dependency via an SAR structure, can be specified as follows.
+
+```{r fit}
+fit <- brm(
+  CRIME ~ INC + HOVAL, data = COL.OLD,
+  autocor = cor_lagsar(COL.nb),
+  chains = 2, cores = 2
+)
+```
+
+This fits the model in **Stan** using the log probability density function provided above. From the summary output below we see the both higher income and housing value predict *lower* crime rates in the neighberhood. Moreover, there seems to be substantial spatial correlation between adjacent neighbourhoods as indicated by the `lagsar` parameter.
+
+```{r}
+summary(fit)
+```
+
+### Approximate LOO-CV
+
+For the purpose of obtaining approximate LOO-CV, we need to compute the pointwise log-likelihood values. For the above example, this can be done as follows using the recipe explained in the former sections.
+
+```{r}
+params <- as.data.frame(fit)
+y <- fit$data$CRIME
+N <- length(y)
+S <- nrow(params)
+log_lik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
+for (s in 1:S) {
+  eta <- params$b_Intercept[s] + 
+    params$b_INC[s] * fit$data$INC + 
+    params$b_HOVAL[s] * fit$data$HOVAL
+  IB <- diag(N) - params$lagsar[s] * fit$autocor$W
+  Cinv <- t(IB) %*% IB / params$sigma[s]^2
+  g <- Cinv %*% (y - solve(IB, eta))
+  cbar <- diag(Cinv)
+  yloo[s, ] <- y - g / cbar
+  sdloo[s, ] <- sqrt(1 / cbar)
+  log_lik[s, ] <- dnorm(y, yloo[s, ], sdloo[s, ], log = TRUE)
+}
+```
+
+The goodness of the PSIS-LOO approximation can be investigated graphically by ploting the Pareto-k estimates of each observations. Ideally, they should not exceed $0.5$, but in practice the algorithm turns out to be robust up to values of $0.7$ (Vehtari et al. 2017). In the plot below, we see that primarily the fourth observation is problematic and may thus reduce the accuracy of the LOO-CV approximation.
+
+```{r, cache = FALSE}
+log_ratios <- -log_lik
+psis_result <- psis(log_ratios)
+plot(psis_result)
+```
+
+We can also illustrate the LOO predictive distribution using, for instance, the last posterior draw:
+
+```{r, cache = FALSE}
+yloo_sub <- as.numeric(yloo[S, ])
+sdloo_sub <- as.numeric(sdloo[S, ])
+df <- data.frame(
+  y = y, yloo = yloo_sub, 
+  ymin = yloo_sub - sdloo_sub * 2, 
+  ymax = yloo_sub + sdloo_sub * 2
+)
+ggplot(data=df, aes(x = y, y = yloo)) +
+  geom_pointrange(aes(ymin = ymin, ymax = ymax)) + 
+  geom_abline()
+```
+
+Finally, we compute the PSIS-LOO information criterion, which we will validate using exact LOO-CV in the upcoming section.
+
+```{r}
+(psis_looic <- loo(log_lik))
+```
+
+### Exact LOO-CV
+
+Exact LOO-CV for the above example is somewhat more involved, as we need to allow missing value imputation and re-fit the model $N$ times. First, we create a dummy model, which we can re-use afterwards.
+
+```{r fit_dummy}
+fit_dummy <- brm(
+  CRIME | mi() ~ INC + HOVAL, data = COL.OLD,
+  autocor = cor_lagsar(COL.nb), chains = 0
+)
+```
+
+Next, we fit the model $N$ times each time leaving out a single observation and compute the log predictive density for this observation. For obvious reasons, this takes some time but is necessary in order to validate the approximate LOO-CV results above.
+
+```{r exact-loo-cv, results="hide", message=FALSE, warning=FALSE, cache = TRUE}
+S <- 500
+res <- vector("list", N)
+log_lik <- matrix(NA, nrow = S, ncol = N)
+for (i in seq_len(N)) {
+  dat_mi <- COL.OLD
+  dat_mi$CRIME[i] <- NA
+  fit_i <- update(fit_dummy, newdata = dat_mi, chains = 1, iter = S * 2)
+  params <- as.data.frame(fit_i)
+  yloo <- sdloo <- rep(NA, S)
+  for (s in seq_len(S)) {
+    yt <- y
+    yt[i] <- params$Ymi[s]
+    eta <- params$b_Intercept[s] + 
+      params$b_INC[s] * fit_i$data$INC + 
+      params$b_HOVAL[s] * fit_i$data$HOVAL
+    IB <- diag(N) - params$lagsar[s] * fit_i$autocor$W
+    Cinv <- t(IB) %*% IB / params$sigma[s]^2
+    g <- Cinv %*% (yt - solve(IB, eta))
+    cbar <- diag(Cinv);
+    yloo[s] <- yt[i] - g[i] / cbar[i]
+    sdloo[s] <- sqrt(1 / cbar[i])
+    log_lik[s, i] <- dnorm(y[i], yloo[s], sdloo[s], log = TRUE)
+  }
+  ypred <- rnorm(S, yloo, sdloo)
+  res[[i]] <- data.frame(y = c(params$Ymi, ypred))
+  res[[i]]$type <- rep(c("pp", "loo"), each = S)
+  res[[i]]$obs <- i
+}
+res <- do.call(rbind, res)
+```
+
+A first step in the validation of the pointwise predictive density is to compare the distribution of its implied response values for the left-out observation to the distributon of the $y_{\mathrm{mis}}$ posterior-predictive values estimated as part of the model. If the pointwise predictive density is correct, the two distributions should match very closely (up to sampling error). In the plot below, we overlay these two distributions for the first five observations and see that they match very closely (as is the case for all $49$ observations of the present example).
+
+```{r yplots, fig.width=10, cache = FALSE}
+res_sub <- res[res$obs %in% 1:5, ]
+ggplot(res_sub, aes(y, fill = type)) +
+  geom_density(alpha = 0.7) + 
+  facet_wrap("obs", scales = "free", ncol = 5)
+```
+
+In the final step, we are going to compute the LOO information criterion value based on the exact LOO-CV and compare it the approximate PSIS-LOO results we computed earlier.
+
+```{r loo_exact, cache=FALSE}
+exact_elpds <- apply(log_lik, 2, brms:::log_mean_exp)
+(exact_elpd <- sum(exact_elpds))
+(exact_looic <- -2 * exact_elpd)
+```
+
+The results of approximate and exact LOO-CV are rather similar but not as close as we would expect **if** there were no problematic observations. An inspection of the pointwise values `psis_looic$pointwise[, "elpd_loo"]` and `exact_elpds` shows that they are very similar with the exception of the problematic fourth observation, which explains the difference between approximate and exact LOO-CV.
+
+In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.
+
+<br />
+
+## References
+
+Anselin L. (1988). *Spatial econometrics: methods and models*. Dordrecht: Kluwer Academic.
+
+Sundararajan S. & Keerthi S. S. (2001). Predictive approaches for choosing hyperparameters in Gaussian processes. *Neural Computation*, 13(5), 1103--1118.
+
+Vehtari A., Mononen T., Tolvanen V., Sivula T., & Winther O. (2016). Bayesian leave-one-out cross-validation approximations for Gaussian latent variable models. *Journal of Machine Learning Research*, 17(103), 1--38. [Online](http://jmlr.org/papers/v17/14-540.html).
+
+Vehtari A., Gelman A., & Gabry J. (2017). Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Statistics and Computing*, 27(5), 1413--1432. doi:10.1007/s11222-016-9696-4. [Online](http://link.springer.com/article/10.1007/s11222-016-9696-4). [arXiv preprint arXiv:1507.04544](https://arxiv.org/abs/1507.04544).
+
+<br />
+
+## Appendix
+
+### Appendix: Session information
+
+```{r}
+sessionInfo()
+```
+
+### Appendix: Licenses
+
+* Code &copy; 2018, Aki Vehtari & Paul Buerkner, licensed under BSD-3.
+* Text &copy; 2018, Aki Vehtari & Paul Buerkner, licensed under CC-BY-NC 4.0.
