@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 For the computation of approximate leave-one-out cross-validation (LOO-CV) one needs to compute the *pointwise* log-likelihood of every response value $y_i$ where $i$ indicates observations. This is straight-forward for *factorized* models in which response values are conditionally independent given the parameters $\theta$:
 $$
-p(y | \theta) = \prod_{i=1}^n p(y_i | \theta).
+p(y | \theta) = \prod_{i=1}^N p(y_i | \theta).
 $$
 Here, as well as in the following, $p$ denotes probability density or mass functions depending on whether we are dealing with continuous or discrete random variables. In factorized models, the pointwise log-likelihood is simply given by $\log p(y_i | \theta)$.
 
@@ -29,7 +29,7 @@ Computing the pointwise log-likelihood for non-factorized models is not always p
 $$
 y \sim N(0, K+\sigma^2 I),
 $$
-where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an arbitrary nondegenerate covariance matrix $C$ (ie it has to be invertible). The LOO predictive mean and standard deviation can be computed as follows:
+where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an arbitrary nondegenerate covariance matrix $C$ (i.e. it has to be invertible). The LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
   \mu_{\tilde{y},-i} & = y_i-\bar{c}_{ii}^{-1}g_i \nonumber \\
   \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
@@ -62,17 +62,17 @@ The above LOO equations for multivariate normal models are conditional
 on parameters $\theta$. To obtain leave-one-out predictive density
 $p(y_i|y_{-i})$ we need to integrate over $\theta$
 $$
- p(y_i|y_{-i}) = \int p(y_i|y_{-i}, \theta) p(\theta|y_{-i}) d\theta,
+p(y_i|y_{-i}) = \int p(y_i|y_{-i}, \theta) p(\theta|y_{-i}) d\theta,
 $$
 where $p(\theta|y_{-i})$ is the leave-one-out posterior for
-$\theta$. To avoid sampling from $n$ leave-one-out posteriors, it is
+$\theta$. To avoid sampling from $N$ leave-one-out posteriors, it is
 possible to use posterior draws $\theta^{(s)}$ $(s=1,\ldots,S)$ from
 the full posterior distribution $p(\theta|y)$ and approximate the
 above integral with integrated importance sampling (Vehtari et al.,
 2016, Section 3.6.1):
 $$
  p(y_i|y_{-i}) \approx 
- \sum_{s=1}^S \frac{ p(y_i|y_{-i}, \theta^{(s)}) w_i^{(s)}}{w_i^{(s)}},
+ \frac{ \sum_{s=1}^S  p(y_i|y_{-i}, \theta^{(s)}) w_i^{(s)}}{ \sum_{s=1}^S w_i^{(s)}},
 $$
 where $w_i^{(s)}$ are importance weights. We first compute raw importance ratios
 $$
@@ -81,7 +81,7 @@ $$
 and then stabilize them using Pareto smoothed importance sampling
 (PSIS, Vehtari et al, 2017b) method to obtain the weights
 $w_i^{(s)}$. The resulting approximation is called Pareto-smoothed
-importance-sampling leave-one-out (PSIS-LOO, Vehtari et al, 2017).
+importance-sampling leave-one-out (PSIS-LOO, Vehtari et al, 2017a).
 
 ### Exact LOO-CV with re-fit
 
@@ -236,7 +236,7 @@ for (s in 1:S) {
 }
 ```
 
-The goodness of the PSIS-LOO approximation can be investigated graphically by plotting the Pareto-k estimates of each observations. Ideally, they should not exceed $0.5$, but in practice the algorithm turns out to be robust up to values of $0.7$ (Vehtari et al, 2017ab). In the plot below, we see that primarily the fourth observation is problematic and may thus reduce the accuracy of the LOO-CV approximation.
+The goodness of the PSIS-LOO approximation can be investigated graphically by plotting the Pareto-k estimates of each observations. Ideally, they should not exceed $0.5$, but in practice the algorithm turns out to be robust up to values of $0.7$ (Vehtari et al, 2017a). In the plot below, we see that primarily the fourth observation is problematic and may thus reduce the accuracy of the LOO-CV approximation.
 
 ```{r, cache = FALSE}
 log_ratios <- -log_lik
