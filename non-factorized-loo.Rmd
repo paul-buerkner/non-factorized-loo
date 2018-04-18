@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 For the computation of approximate leave-one-out cross-validation (LOO-CV) one needs to compute the *pointwise* log-likelihood of every response value $y_i$ where $i$ indicates observations. This is straight-forward for *factorized* models in which response values are conditionally independent given the parameters $\theta$:
 $$
-p(y | \theta) = \prod_{i=1}^n p(y_i | \theta) 
+p(y | \theta) = \prod_{i=1}^n p(y_i | \theta).
 $$
 Here, as well as in the following, $p$ denotes probability density or mass functions depending on whether we are dealing with continuous or discrete random variables. In factorized models, the pointwise log-likelihood is simply given by $\log p(y_i | \theta)$.
 
@@ -32,7 +32,7 @@ $$
 where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an arbitrary nondegenerate covariance matrix $C$ (ie it has to be invertible). The LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
   \mu_{\tilde{y},-i} & = y_i-\bar{c}_{ii}^{-1}g_i \nonumber \\
-  \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}}
+  \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
 \end{align}
 where 
 \begin{align}
@@ -72,15 +72,15 @@ above integral with integrated importance sampling (Vehtari et al.,
 2016, Section 3.6.1):
 $$
  p(y_i|y_{-i}) \approx 
- \sum_{s=1}^S \frac{ p(y_i|y_{-i}, \theta^{(s)}) w^{(s)}}{w^{(s)}},
+ \sum_{s=1}^S \frac{ p(y_i|y_{-i}, \theta^{(s)}) w_i^{(s)}}{w_i^{(s)}},
 $$
-$w^{(s)}$ are importance weights. We first compute raw importance ratios
+where $w_i^{(s)}$ are importance weights. We first compute raw importance ratios
 $$
-  r_i^{(s) \propto \frac{1}{p(y_i | y_{-i}, \theta^{(s)})},
+  r_i^{(s)} \propto \frac{1}{p(y_i | y_{-i}, \theta^{(s)})},
 $$
 and then stabilize them using Pareto smoothed importance sampling
 (PSIS, Vehtari et al, 2017b) method to obtain the weights
-$w^{(s)}$. The resulting approximation is called Pareto-smoothed
+$w_i^{(s)}$. The resulting approximation is called Pareto-smoothed
 importance-sampling leave-one-out (PSIS-LOO, Vehtari et al, 2017).
 
 ### Exact LOO-CV with re-fit
@@ -124,7 +124,7 @@ Leave-one-out predictive distribution is then easily estimated as
 $$
  p(y_i|y_{-i}) \approx \sum_{s=1}^S p(y_i|y_{-i}, \theta_{-i}^{(s)}),
 $$
-where $\theta_{-i}^{(s)}$ $(s=1,\ldots,S)$ are draws from
+where $\theta_{-i}^{(s)}$ are draws from
 the posterior distribution $p(\theta|y_{\mathrm{mis}(i)})$.
 
 ## Lagged SAR models
