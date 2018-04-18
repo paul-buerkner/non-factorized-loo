@@ -3,7 +3,6 @@ title: "Leave-one-out cross-validation for non-factorized models"
 author: Aki Vehtari & Paul Buerkner
 output:
   html_document: default
-  html_notebook: default
   pdf_document: default
 ---
 
@@ -290,7 +289,28 @@ exact_elpds <- apply(log_lik, 2, brms:::log_mean_exp)
 (exact_looic <- -2 * exact_elpd)
 ```
 
-The results of approximate and exact LOO-CV are rather similar but not as close as we would expect **if** there were no problematic observations. An inspection of the pointwise values `psis_looic$pointwise[, "elpd_loo"]` and `exact_elpds` shows that they are very similar with the exception of the problematic fourth observation, which explains the difference between approximate and exact LOO-CV.
+The results of approximate and exact LOO-CV are rather similar but not as close as we would expect **if** there were no problematic observations. We can investigate this issue more closely by plotting the approximate against the exact pointwise elpds.
+
+```{r}
+df <- data.frame(
+  approx_elpd = psis_looic$pointwise[, "elpd_loo"],
+  exact_elpd = exact_elpds
+)
+ggplot(data=df, aes(x = approx_elpd, y = exact_elpd)) +
+  geom_point() + 
+  geom_abline() +
+  xlab("Approximate elpds") + 
+  ylab("Exact elpds")
+```
+
+Summing over the non-problematic observations only, reveals practically equivalent results;
+
+````{r}
+sum(psis_looic$pointwise[-4, "elpd_loo"])
+sum(exact_elpds[-4])
+```
+
+Accordingly, the differences found when including all observations do not indicate an eror in our implementation of the approximate LOO-CV but rather are due to violations of its assumptions.
 
 In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.
 
