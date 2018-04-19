@@ -8,7 +8,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  cache=TRUE, message=FALSE, error=FALSE, 
+  cache=TRUE, message=FALSE, error=FALSE,
   warning=FALSE, comment=NA, out.width='95%'
 )
 ```
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 When computing approximate leave-one-out cross-validation (LOO-CV) after
 fitting a Bayesian model, the first step is to calculate the *pointwise*
-log-likelihood for every response value $y_i, \: i = 1, \ldots, N$. 
+log-likelihood for every response value $y_i, \: i = 1, \ldots, N$.
 This is straightforward for *factorized* models in which response values are
 conditionally independent given the model parameters $\theta$ and the likelihood
 can be written in the familiar form
@@ -35,14 +35,14 @@ log-likelihood.
 Unfortunately, the situation is more complicated for *non-factorized* models in
 which response values are not conditionally independent. When there is residual
 dependency even after accounting for the model parameters $\theta$, the
-conditional pointwise log-likelihood has the general form 
+conditional pointwise log-likelihood has the general form
 $\log p(y_i \,|\, y_{-i}, \theta)$, where $y_{-i}$ denotes all response values
 except observation $i$.
 
 ## LOO-CV for multivariate normal models
 
-Although computing the pointwise log-likelihood for non-factorized models is 
-often impossible, there is a large class of multivariate normal models 
+Although computing the pointwise log-likelihood for non-factorized models is
+often impossible, there is a large class of multivariate normal models
 for which an analytical solution is available. These equations were initially
 derived by Sundararajan and Keerthi (2001) with a focus on the special case of a
 zero-mean Gaussian process model with prior covariance $K$ and residual
@@ -50,7 +50,7 @@ standard deviation $\sigma$,
 $$
 y \sim {\mathrm N}(0, \, K+\sigma^2 I),
 $$
-where $I$ is the identity matrix of appropriate dimension. 
+where $I$ is the identity matrix of appropriate dimension.
 
 Fortunately, Sundararajan and Keerthi's results also generalize to the case of
 an arbitrary nondegenerate invertible covariance matrix $C$. For such models,
@@ -59,7 +59,7 @@ the LOO predictive mean and standard deviation can be computed as follows:
   \mu_{\tilde{y},-i} &= y_i-\bar{c}_{ii}^{-1} g_i \nonumber \\
   \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
 \end{align}
-where 
+where
 \begin{align}
   g_i &= \left[C^{-1} y\right]_i \nonumber \\
   \bar{c}_{ii} &= \left[C^{-1}\right]_{ii}.
@@ -69,16 +69,16 @@ Using these results, the log predictive density of the $i$th observation is then
 computed as
 $$
   \log p(y_i \,|\, y_{-i},\theta)
-  = - \frac{1}{2}\log(2\pi) 
-  - \frac{1}{2}\log \sigma^2_{-i} 
+  = - \frac{1}{2}\log(2\pi)
+  - \frac{1}{2}\log \sigma^2_{-i}
   - \frac{1}{2}\frac{(y_i-\mu_{-i})^2}{\sigma^2_{-i}}.
 $$
 Expressing this same equation in terms of $g_i$ and $\bar{c}_{ii}$, the log
 predictive density becomes:
 $$
-  \log p(y_i \,|\, y_{-i},\theta) 
-  = - \frac{1}{2}\log(2\pi) 
-  + \frac{1}{2}\log \bar{c}_{ii} 
+  \log p(y_i \,|\, y_{-i},\theta)
+  = - \frac{1}{2}\log(2\pi)
+  + \frac{1}{2}\log \bar{c}_{ii}
   - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}.
 $$
 (Note that Vehtari et al. (2016) has a typo in the corresponding Equation 34.)
@@ -93,21 +93,21 @@ The above LOO equations for multivariate normal models are conditional on
 parameters $\theta$. Therefore, to obtain the leave-one-out predictive density
 $p(y_i \,|\, y_{-i})$ we need to integrate over $\theta$,
 $$
-p(y_i\,|\,y_{-i}) = 
+p(y_i\,|\,y_{-i}) =
   \int p(y_i\,|\,y_{-i}, \theta) \, p(\theta\,|\,y_{-i}) \,d\theta.
 $$
 Here, $p(\theta\,|\,y_{-i})$ is the leave-one-out posterior distribution for
 $\theta$, that is, the posterior distribution for $\theta$ obtained by fitting
-the model while holding out the $i$th observation. To avoid the cost of 
+the model while holding out the $i$th observation. To avoid the cost of
 sampling from $N$ leave-one-out posteriors, it is possible to take the posterior
 draws $\theta^{(s)}, \, s=1,\ldots,S$, from the \emph{full} posterior
 $p(\theta\,|\,y)$, and then approximate the above integral using integrated
 importance sampling (Vehtari et al., 2016, Section 3.6.1):
 $$
- p(y_i\,|\,y_{-i}) \approx 
+ p(y_i\,|\,y_{-i}) \approx
    \frac{ \sum_{s=1}^S p(y_i\,|\,y_{-i},\,\theta^{(s)}) \,w_i^{(s)}}{ \sum_{s=1}^S w_i^{(s)}},
 $$
-where $w_i^{(s)}$ are importance weights. 
+where $w_i^{(s)}$ are importance weights.
 
 First we compute the raw importance ratios
 $$
@@ -120,25 +120,25 @@ referred to as PSIS-LOO (Vehtari et al, 2017a).
 ### Exact LOO-CV with re-fit
 
 In order to validate the approximate LOO procedure, and also in order to allow
-exact computations to made for a small number of leave-one-out folds for which
+exact computations to be made for a small number of leave-one-out folds for which
 the Pareto $k$ diagnostic (Vehtari et al, 2017b) indicates an unstable
 approximation, we need to consider how we might to do _exact_ leave-one-out CV
 for a non-factorizable model. In the case of a Gaussian process that has the
 marginalization property, we could just drop the one row and column of $C$
 corresponding to the held out out observation. This does not hold in general,
 however, and to keep the original prior we need to maintain the full covariance
-matrix $C$ even when one of the observations is left out. 
+matrix $C$ even when one of the observations is left out.
 
 The solution is to model $y_i$ as a missing observation and estimate it along
 with all of the other model parameters. For a conditional multivariate normal
 model, $\log p(y_i\,|\,y_{-i})$ can be computed as follows. First, we model
-$y_i$ as missing and denote the corresponding parameter $y_{\mathrm{mis}}$. 
-Then, we define 
+$y_i$ as missing and denote the corresponding parameter $y_{\mathrm{mis}}$.
+Then, we define
 $$
 y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_{\mathrm{mis}}, y_{i+1}, \ldots, y_N).
 $$
 to be the same as the full set of observations $y$, except replacing $y_i$
-with the parameter $y_{\mathrm{mis}}$. 
+with the parameter $y_{\mathrm{mis}}$.
 
 Second, we compute the LOO predictive mean and standard deviations as above, but
 replace $y$ with $y_{\mathrm{mis}(i)}$ in the computation of
@@ -146,23 +146,25 @@ $\mu_{\tilde{y},-i}$:
 $$
 \mu_{\tilde{y},-i} = y_{{\mathrm{mis}}(i)}-\bar{c}_{ii}^{-1}g_i,
 $$
-where 
+where
 $$
 g_i = \left[ C^{-1} y_{\mathrm{mis}(i)} \right]_i.
 $$
+
 The conditional log predictive density is then computed with the above
 $\mu_{\tilde{y},-i}$ and the left out observation $y_i$
+
 $$
   \log p(y_i\,|\,y_{-i},\theta)
-  = - \frac{1}{2}\log(2\pi) 
-  - \frac{1}{2}\log \sigma^2_{\tilde{y},-i} 
+  = - \frac{1}{2}\log(2\pi)
+  - \frac{1}{2}\log \sigma^2_{\tilde{y},-i}
   - \frac{1}{2}\frac{(y_i-\mu_{\tilde{y},-i})^2}{\sigma^2_{\tilde{y},-i}}.
 $$
 Finally, the leave-one-out predictive distribution can then be estimated as
 $$
  p(y_i\,|\,y_{-i}) \approx \sum_{s=1}^S p(y_i\,|\,y_{-i}, \theta_{-i}^{(s)}),
 $$
-where $\theta_{-i}^{(s)}$ are draws from the posterior distribution 
+where $\theta_{-i}^{(s)}$ are draws from the posterior distribution
 $p(\theta\,|\,y_{\mathrm{mis}(i)})$.
 
 ## Lagged SAR models
@@ -192,25 +194,25 @@ This corresponds to the following log probability density function coded in
 **Stan**:
 
 ```{r, eval = FALSE}
-/* normal log-pdf for spatially lagged responses 
- * Args: 
- *   y: the response vector 
+/* normal log-pdf for spatially lagged responses
+ * Args:
+ *   y: the response vector
  *   mu: mean parameter vector
  *   sigma: residual standard deviation
  *   rho: positive autoregressive parameter
  *   W: spatial weight matrix
  * Returns:  
- *   a scalar to be added to the log posterior 
- */ 
-real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
-                        real rho, matrix W) { 
+ *   a scalar to be added to the log posterior
+ */
+real normal_lagsar_lpdf(vector y, vector mu, real sigma,
+                        real rho, matrix W) {
   matrix[rows(y), rows(y)] W_new;
   vector[rows(y)] half_pred;
   real inv_sigma2;
   W_new = diag_matrix(rep_vector(1.0, rows(y))) - rho * W;
   half_pred  = W_new * (y - mdivide_left(W_new, mu));
   inv_sigma2 = 1 / sigma^2;
-  return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) - 
+  return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) -
          0.5 * dot_self(half_pred) * inv_sigma2;
 }
 ```
@@ -227,13 +229,13 @@ y-\tilde{W}^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(\tilde{W}^{T}\tilde{W})^{-1})
 Conditionally on $\rho$, $\eta$, and $\sigma$, this is has the same form as zero
 mean Gaussian process. Accordingly, we can compute the leave-one-out predictive
 densities with the equations by Sundararajan and Keerthi (2001) replacing $y$
-with $(y-\tilde{W}^{-1}\eta)$ and using 
+with $(y-\tilde{W}^{-1}\eta)$ and using
 $C = \sigma^2(\tilde{W}^{T}\tilde{W})^{-1}$.
 
 ## Case Study: Neighborhood Crime in Columbus
 
 As an example, we will use a data set about the neighborhood crime in Columbus
-initially described in Aneslin (1988) and shipped with the **spdep** package 
+initially described in Aneslin (1988) and shipped with the **spdep** package
 in R.
 
 ```{r}
@@ -290,8 +292,8 @@ N <- length(y)
 S <- nrow(params)
 log_lik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
 for (s in 1:S) {
-  eta <- params$b_Intercept[s] + 
-    params$b_INC[s] * fit$data$INC + 
+  eta <- params$b_Intercept[s] +
+    params$b_INC[s] * fit$data$INC +
     params$b_HOVAL[s] * fit$data$HOVAL
   IB <- diag(N) - params$lagsar[s] * fit$autocor$W
   Cinv <- t(IB) %*% IB / params$sigma[s]^2
@@ -323,12 +325,12 @@ equations work correctly, for instance, using the last posterior draw:
 yloo_sub <- as.numeric(yloo[S, ])
 sdloo_sub <- as.numeric(sdloo[S, ])
 df <- data.frame(
-  y = y, yloo = yloo_sub, 
-  ymin = yloo_sub - sdloo_sub * 2, 
+  y = y, yloo = yloo_sub,
+  ymin = yloo_sub - sdloo_sub * 2,
   ymax = yloo_sub + sdloo_sub * 2
 )
 ggplot(data=df, aes(x = y, y = yloo, ymin = ymin, ymax = ymax)) +
-  geom_errorbar(width = 1, color = "skyblue3") + 
+  geom_errorbar(width = 1, color = "skyblue3") +
   geom_point() +
   geom_abline(size = 1.2)
 ```
@@ -371,8 +373,8 @@ for (i in seq_len(N)) {
   for (s in seq_len(S)) {
     yt <- y
     yt[i] <- params$Ymi[s]
-    eta <- params$b_Intercept[s] + 
-      params$b_INC[s] * fit_i$data$INC + 
+    eta <- params$b_Intercept[s] +
+      params$b_INC[s] * fit_i$data$INC +
       params$b_HOVAL[s] * fit_i$data$HOVAL
     IB <- diag(N) - params$lagsar[s] * fit_i$autocor$W
     Cinv <- t(IB) %*% IB / params$sigma[s]^2
@@ -402,7 +404,7 @@ the present example).
 ```{r yplots, fig.width=10, cache = FALSE}
 res_sub <- res[res$obs %in% 1:5, ]
 ggplot(res_sub, aes(y, fill = type)) +
-  geom_density(alpha = 0.7) + 
+  geom_density(alpha = 0.7) +
   facet_wrap("obs", scales = "free", ncol = 5)
 ```
 
@@ -427,9 +429,9 @@ df <- data.frame(
   exact_elpd = exact_elpds
 )
 ggplot(data=df, aes(x = approx_elpd, y = exact_elpd)) +
-  geom_point() + 
+  geom_point() +
   geom_abline() +
-  xlab("Approximate elpds") + 
+  xlab("Approximate elpds") +
   ylab("Exact elpds") +
   xlim(c(-16, -3)) + ylim(c(-16, -3))
 ```
@@ -459,72 +461,72 @@ extracted via `stancode(fit_dummy)`:
 ```{r, results="hide"}
 "// generated with brms 2.2.0
 functions {
-  /* normal log-pdf for spatially lagged responses 
-   * Args: 
-   *   y: the response vector 
+  /* normal log-pdf for spatially lagged responses
+   * Args:
+   *   y: the response vector
    *   mu: mean parameter vector
    *   sigma: residual standard deviation
    *   rho: positive autoregressive parameter
    *   W: spatial weight matrix
    * Returns:  
-   *   a scalar to be added to the log posterior 
-   */ 
-   real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
-                           real rho, matrix W) { 
+   *   a scalar to be added to the log posterior
+   */
+   real normal_lagsar_lpdf(vector y, vector mu, real sigma,
+                           real rho, matrix W) {
      matrix[rows(y), rows(y)] W_new;
      vector[rows(y)] half_pred;
      real inv_sigma2;
      W_new = diag_matrix(rep_vector(1.0, rows(y))) - rho * W;
      half_pred  = W_new * (y - mdivide_left(W_new, mu));
      inv_sigma2 = 1 / sigma^2;
-     return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) - 
+     return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) -
             0.5 * dot_self(half_pred) * inv_sigma2;
    }
-} 
-data { 
-  int<lower=1> N;  // total number of observations 
-  vector[N] Y;  // response variable 
-  int<lower=0> Nmi;  // number of missings 
-  int<lower=1> Jmi[Nmi];  // positions of missings 
-  int<lower=1> K;  // number of population-level effects 
-  matrix[N, K] X;  // population-level design matrix 
-  matrix[N, N] W;  // spatial weight matrix 
-  int prior_only;  // should the likelihood be ignored? 
-} 
-transformed data { 
-  int Kc = K - 1; 
-  matrix[N, K - 1] Xc;  // centered version of X 
-  vector[K - 1] means_X;  // column means of X before centering 
-  for (i in 2:K) { 
-    means_X[i - 1] = mean(X[, i]); 
-    Xc[, i - 1] = X[, i] - means_X[i - 1]; 
-  } 
-} 
-parameters { 
+}
+data {
+  int<lower=1> N;  // total number of observations
+  vector[N] Y;  // response variable
+  int<lower=0> Nmi;  // number of missings
+  int<lower=1> Jmi[Nmi];  // positions of missings
+  int<lower=1> K;  // number of population-level effects
+  matrix[N, K] X;  // population-level design matrix
+  matrix[N, N] W;  // spatial weight matrix
+  int prior_only;  // should the likelihood be ignored?
+}
+transformed data {
+  int Kc = K - 1;
+  matrix[N, K - 1] Xc;  // centered version of X
+  vector[K - 1] means_X;  // column means of X before centering
+  for (i in 2:K) {
+    means_X[i - 1] = mean(X[, i]);
+    Xc[, i - 1] = X[, i] - means_X[i - 1];
+  }
+}
+parameters {
   vector[Nmi] Ymi;  // estimated missings
-  vector[Kc] b;  // population-level effects 
-  real temp_Intercept;  // temporary intercept 
-  real<lower=0> sigma;  // residual SD 
-  real<lower=0,upper=1> lagsar;  // SAR parameter 
-} 
-transformed parameters { 
-} 
-model { 
+  vector[Kc] b;  // population-level effects
+  real temp_Intercept;  // temporary intercept
+  real<lower=0> sigma;  // residual SD
+  real<lower=0,upper=1> lagsar;  // SAR parameter
+}
+transformed parameters {
+}
+model {
   vector[N] Yl = Y;
-  vector[N] mu = Xc * b + temp_Intercept; 
+  vector[N] mu = Xc * b + temp_Intercept;
   Yl[Jmi] = Ymi;
-  // priors including all constants 
-  target += student_t_lpdf(temp_Intercept | 3, 34, 17); 
+  // priors including all constants
+  target += student_t_lpdf(temp_Intercept | 3, 34, 17);
   target += student_t_lpdf(sigma | 3, 0, 17)
-    - 1 * student_t_lccdf(0 | 3, 0, 17); 
-  // likelihood including all constants 
-  if (!prior_only) { 
-    target += normal_lagsar_lpdf(Yl | mu, sigma, lagsar, W); 
-  } 
-} 
-generated quantities { 
-  // actual population-level intercept 
-  real b_Intercept = temp_Intercept - dot_product(means_X, b); 
+    - 1 * student_t_lccdf(0 | 3, 0, 17);
+  // likelihood including all constants
+  if (!prior_only) {
+    target += normal_lagsar_lpdf(Yl | mu, sigma, lagsar, W);
+  }
+}
+generated quantities {
+  // actual population-level intercept
+  real b_Intercept = temp_Intercept - dot_product(means_X, b);
 }"
 ```
 
@@ -539,7 +541,7 @@ responses `Y`, we define a new variable `Yl` which is equal to `Y` if the
 reponse is observed and equal to `Ymi` if the response is missing. The latter is
 in turn defined as a parameter and thus estimated along with all other paramters
 of the model. More details about missing value imputation in Stan can be found
-in Section 11 of the 
+in Section 11 of the
 [Stan manual](http://mc-stan.org/users/documentation/index.html).
 
 Stan code extracted from brms is not only helpful when learning Stan, but can
@@ -551,8 +553,8 @@ unpratical to use `stancode()` on a fitted model object, because we actually
 don't need the fitted model. Instead, we can use `make_stancode()` to generate
 the Stan code directly. The appropriate data can be prepared (and then manually
 amended if needed) via `make_standata()`. Both Stan code and data can be passed
-to (R)Stan via 
-`rstan::stan(model_code = <your Stan code>, data = <your Stan data>)` 
+to (R)Stan via
+`rstan::stan(model_code = <your Stan code>, data = <your Stan data>)`
 in order to fit the model.
 
 ## Conclusion
