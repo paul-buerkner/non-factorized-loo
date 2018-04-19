@@ -19,17 +19,17 @@ For the computation of approximate leave-one-out cross-validation (LOO-CV) one n
 $$
 p(y | \theta) = \prod_{i=1}^N p(y_i | \theta).
 $$
-Here, as well as in the following, $p$ denotes probability density or mass functions depending on whether we are dealing with continuous or discrete random variables. In factorized models, the pointwise log-likelihood is simply given by $\log p(y_i | \theta)$.
+Here, as well as in the following, $p$ denotes probability density or mass functions depending on whether we are dealing with continuous or discrete random variables. In factorized models, the conditional pointwise log-likelihood is simply given by $\log p(y_i | \theta)$.
 
-The situation becomes more complicated when response values are not conditionally independent, and instead have residual dependency after taking the model parameters $\theta$ into account. The pointwise log-likelihood of such *non-factorized* models has the general form $\log p(y_i | y_{-i}, \theta)$, where $y_{-i}$ denotes all response values without the value of observation $i$.
+The situation becomes more complicated when response values are not conditionally independent, and instead have residual dependency after taking the model parameters $\theta$ into account. The conditional pointwise log-likelihood of such *non-factorized* models has the general form $\log p(y_i | y_{-i}, \theta)$, where $y_{-i}$ denotes all response values without the value of observation $i$.
 
 ## LOO-CV for multivariate normal models
 
 Computing the pointwise log-likelihood for non-factorized models is not always possible but there is analytic solution available for a large class of multivariate normal models. These equations were initially derived by Sundararajan and Keerthi (2001) who focused on the special case of a normal zero-mean Gaussian process model with a prior covariance $K$ and residual standard deviation $\sigma$:
 $$
-y \sim N(0, K+\sigma^2 I),
+y \sim {\mathrm N}(0, K+\sigma^2 I),
 $$
-where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an arbitrary nondegenerate covariance matrix $C$ (i.e. it has to be invertible). The LOO predictive mean and standard deviation can be computed as follows:
+where $I$ is the identity matrix of appropriate dimension. Their results readily generalize to an arbitrary nondegenerate invertible covariance matrix $C$. The LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
   \mu_{\tilde{y},-i} & = y_i-\bar{c}_{ii}^{-1}g_i \nonumber \\
   \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
@@ -54,7 +54,7 @@ $$
   + \frac{1}{2}\log \bar{c}_{ii} 
   - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}
 $$
-(note that Vehtari et al. (2016) has a typo in the corresponding Equation 34). Together, this provides a recipe to obtain the pointwise log-likelihood for all models which can be expressed conditionally in terms of a multivariate normal model with an invertible covariance matrix $C$.
+(note that Vehtari et al. (2016) has a typo in the corresponding Equation 34). Together, this provides a recipe to obtain the conditional pointwise log-likelihood for all models which can be expressed conditionally in terms of a multivariate normal model with an invertible covariance matrix $C$.
 
 ### Approximate LOO-CV using integrated importance-sampling
 
@@ -79,23 +79,22 @@ $$
   r_i^{(s)} \propto \frac{1}{p(y_i | y_{-i}, \theta^{(s)})},
 $$
 and then stabilize them using Pareto smoothed importance sampling
-(PSIS, Vehtari et al, 2017b) method to obtain the weights
+method (PSIS, Vehtari et al, 2017b) to obtain the weights
 $w_i^{(s)}$. The resulting approximation is called Pareto-smoothed
 importance-sampling leave-one-out (PSIS-LOO, Vehtari et al, 2017a).
 
 ### Exact LOO-CV with re-fit
 
 To validate the approximated LOO and to allow exact computation for a
-small number of leave-one-out folds for which Pareto diagnostic
-(Vehtari et al, 2017b) indicate unstable approximation (aka PSIS-LOO+,
-Vehtari et al 2017a), we need to consider how to do exact
-leave-one-out for non-factorizable model. In case of Gaussian process
-which have the marginalization property, we could just drop from the
-covariance $C$ the row and column corresponding to left out
-observation. In general, this does not hold and to keep the original
-prior we need to keep the full covariance matrix $C$ also when one of
-the observations is left out. In this case we can model $y_i$ as
-missing observation and estimate it along with all other model
+small number of leave-one-out folds for which Pareto $k$ diagnostic
+(Vehtari et al, 2017b) indicate unstable approximation , we need to
+consider how to do exact leave-one-out for non-factorizable model. In
+case of Gaussian process which has the marginalization property, we
+could just drop the one row and column of $C$ corresponding to left
+out observation. In general, this does not hold and to keep the
+original prior we need to keep the full covariance matrix $C$ also
+when one of the observations is left out. In this case, we can model
+$y_i$ as missing observation and fit it along with all other model
 parameters.
 
 In case of conditional multivariate normal model, $\log
@@ -120,7 +119,7 @@ $$
   - \frac{1}{2}\log \sigma^2_{\tilde{y},-i} 
   - \frac{1}{2}\frac{(y_i-\mu_{\tilde{y},-i})^2}{\sigma^2_{\tilde{y},-i}}.
 $$
-Leave-one-out predictive distribution is then easily estimated as
+Leave-one-out predictive distribution can then be estimated as
 $$
  p(y_i|y_{-i}) \approx \sum_{s=1}^S p(y_i|y_{-i}, \theta_{-i}^{(s)}),
 $$
@@ -137,7 +136,7 @@ or equivalently
 $$
 (I - \rho W)y = \eta + \epsilon,
 $$
-where $\rho$ is the spatial correlation parameter and $W$ is a user-defined weight matrix with $w_{ii} = 0$ as well as higher values $w_{ij}$ in the off-diagonal for areas $i$ and $j$ closer to each other. In a linear model, the predictor term $\eta$ is given by $\eta = X \beta$ with design matrix $X$ and regression coefficients $\beta$. However, since the above equation holds for arbitrary $\eta$, there is no need to restrict to linear models. If $\epsilon \sim N(0,\sigma^2 I)$, then
+where $\rho$ is the spatial correlation parameter and $W$ is a user-defined weight matrix with $w_{ii} = 0$ as well as higher values $w_{ij}$ in the off-diagonal for areas $i$ and $j$ closer to each other. In a linear model, the predictor term $\eta$ is given by $\eta = X \beta$ with design matrix $X$ and regression coefficients $\beta$. However, since the above equation holds for arbitrary $\eta$, there is no need to restrict to linear models. If $\epsilon \sim {\mathrm N}(0,\sigma^2 I)$, then
 $$
 (I - \rho W)y \sim {\mathrm N}(\eta, \sigma^2 I).
 $$
@@ -236,7 +235,7 @@ for (s in 1:S) {
 }
 ```
 
-The goodness of the PSIS-LOO approximation can be investigated graphically by plotting the Pareto-k estimates of each observations. Ideally, they should not exceed $0.5$, but in practice the algorithm turns out to be robust up to values of $0.7$ (Vehtari et al, 2017a). In the plot below, we see that primarily the fourth observation is problematic and may thus reduce the accuracy of the LOO-CV approximation.
+The goodness of the PSIS-LOO approximation can be investigated graphically by plotting the Pareto-k estimates of each observations. Ideally, they should not exceed $0.5$, but in practice the algorithm turns out to be robust up to values of $0.7$ (Vehtari et al, 2017ab). In the plot below, we see that primarily the fourth observation is problematic and may thus reduce the accuracy of the LOO-CV approximation.
 
 ```{r, cache = FALSE}
 log_ratios <- -log_lik
