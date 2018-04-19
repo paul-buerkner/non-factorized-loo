@@ -304,7 +304,8 @@ params <- as.data.frame(fit)
 y <- fit$data$CRIME
 N <- length(y)
 S <- nrow(params)
-log_lik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
+loglik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
+
 for (s in 1:S) {
   eta <- params$b_Intercept[s] +
     params$b_INC[s] * fit$data$INC +
@@ -315,7 +316,7 @@ for (s in 1:S) {
   cbar <- diag(Cinv)
   yloo[s, ] <- y - g / cbar
   sdloo[s, ] <- sqrt(1 / cbar)
-  log_lik[s, ] <- dnorm(y, yloo[s, ], sdloo[s, ], log = TRUE)
+  loglik[s, ] <- dnorm(y, yloo[s, ], sdloo[s, ], log = TRUE)
 }
 ```
 
@@ -327,7 +328,7 @@ fourth observation is problematic and may thus reduce the accuracy of the LOO-CV
 approximation.
 
 ```{r, cache = FALSE}
-log_ratios <- -log_lik
+log_ratios <- -loglik
 psis_result <- psis(log_ratios)
 plot(psis_result, label_points = TRUE)
 ```
@@ -353,7 +354,7 @@ Finally, we compute the PSIS-LOO information criterion, which we will validate
 using exact LOO-CV in the upcoming section.
 
 ```{r}
-(psis_looic <- loo(log_lik))
+(psis_looic <- loo(loglik))
 ```
 
 ### Exact LOO-CV
@@ -377,7 +378,7 @@ LOO-CV results above.
 ```{r exact-loo-cv, results="hide", message=FALSE, warning=FALSE, cache = TRUE}
 S <- 500
 res <- vector("list", N)
-log_lik <- matrix(NA, nrow = S, ncol = N)
+loglik <- matrix(NA, nrow = S, ncol = N)
 for (i in seq_len(N)) {
   dat_mi <- COL.OLD
   dat_mi$CRIME[i] <- NA
@@ -396,7 +397,7 @@ for (i in seq_len(N)) {
     cbar <- diag(Cinv);
     yloo[s] <- yt[i] - g[i] / cbar[i]
     sdloo[s] <- sqrt(1 / cbar[i])
-    log_lik[s, i] <- dnorm(y[i], yloo[s], sdloo[s], log = TRUE)
+    loglik[s, i] <- dnorm(y[i], yloo[s], sdloo[s], log = TRUE)
   }
   ypred <- rnorm(S, yloo, sdloo)
   res[[i]] <- data.frame(y = c(params$Ymi, ypred))
@@ -427,7 +428,7 @@ the exact LOO-CV and compare it to the approximate PSIS-LOO result computed
 earlier.
 
 ```{r loo_exact, cache=FALSE}
-exact_elpds <- apply(log_lik, 2, brms:::log_mean_exp)
+exact_elpds <- apply(loglik, 2, brms:::log_mean_exp)
 round(exact_elpd <- sum(exact_elpds),1)
 round(exact_looic <- -2 * exact_elpd,1)
 ```
