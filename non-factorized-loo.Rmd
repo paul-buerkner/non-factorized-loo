@@ -120,7 +120,7 @@ referred to as PSIS-LOO (Vehtari et al, 2017a).
 ### Exact LOO-CV with re-fit
 
 In order to validate the approximate LOO procedure, and also in order to allow
-exact computations to made for a small number of leave-one-out folds for which
+exact computations to be made for a small number of leave-one-out folds for which
 the Pareto $k$ diagnostic (Vehtari et al, 2017b) indicates an unstable
 approximation, we need to consider how we might to do _exact_ leave-one-out CV
 for a non-factorizable model. In the case of a Gaussian process that has the
