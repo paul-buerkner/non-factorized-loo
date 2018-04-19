@@ -15,117 +15,131 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-For the computation of approximate leave-one-out cross-validation (LOO-CV) one
-needs to compute the *pointwise* log-likelihood of every response value $y_i$
-where $i$ indicates observations. This is straight-forward for *factorized*
-models in which response values are conditionally independent given the
-parameters $\theta$:
+When computing approximate leave-one-out cross-validation (LOO-CV) after
+fitting a Bayesian model, the first step is to calculate the *pointwise*
+log-likelihood for every response value $y_i, \: i = 1, \ldots, N$. 
+This is straightforward for *factorized* models in which response values are
+conditionally independent given the model parameters $\theta$ and the likelihood
+can be written in the familiar form
 $$
-p(y | \theta) = \prod_{i=1}^N p(y_i | \theta).
+p(y \,|\, \theta) = \prod_{i=1}^N p(y_i \,|\, \theta).
 $$
-Here, as well as in the following, $p$ denotes probability density or mass
-functions depending on whether we are dealing with continuous or discrete random
-variables. In factorized models, the conditional pointwise log-likelihood is
-simply given by $\log p(y_i | \theta)$.
+The function $p$ will be either a probability density function or a probability
+mass function depending on whether we have a continuous or discrete outcome.
+When $p(y)$ can be factorized in this way, the conditional pointwise
+log-likelihood can be obtained easily by computing $\log p(y_i \,|\, \theta)$ for
+each $i$. We then save each of these individual contributions to the
+log-likelihood rather than simply summing them to obtain the total
+log-likelihood.
 
-The situation becomes more complicated when response values are not
-conditionally independent, and instead have residual dependency after taking the
-model parameters $\theta$ into account. The conditional pointwise log-likelihood
-of such *non-factorized* models has the general form $\log p(y_i | y_{-i},
-\theta)$, where $y_{-i}$ denotes all response values without the value of
-observation $i$.
+Unfortunately, the situation is more complicated for *non-factorized* models in
+which response values are not conditionally independent. When there is residual
+dependency even after accounting for the model parameters $\theta$, the
+conditional pointwise log-likelihood has the general form 
+$\log p(y_i \,|\, y_{-i}, \theta)$, where $y_{-i}$ denotes all response values
+except observation $i$.
 
 ## LOO-CV for multivariate normal models
 
-Computing the pointwise log-likelihood for non-factorized models is not always
-possible but there is analytic solution available for a large class of
-multivariate normal models. These equations were initially derived by
-Sundararajan and Keerthi (2001) who focused on the special case of a normal
-zero-mean Gaussian process model with a prior covariance $K$ and residual
-standard deviation $\sigma$:
+Although computing the pointwise log-likelihood for non-factorized models is 
+often impossible, there is a large class of multivariate normal models 
+for which an analytical solution is available. These equations were initially
+derived by Sundararajan and Keerthi (2001) with a focus on the special case of a
+zero-mean Gaussian process model with prior covariance $K$ and residual
+standard deviation $\sigma$,
 $$
-y \sim {\mathrm N}(0, K+\sigma^2 I),
+y \sim {\mathrm N}(0, \, K+\sigma^2 I),
 $$
-where $I$ is the identity matrix of appropriate dimension. Their results readily
-generalize to an arbitrary nondegenerate invertible covariance matrix $C$. The
-LOO predictive mean and standard deviation can be computed as follows:
+where $I$ is the identity matrix of appropriate dimension. 
+
+Fortunately, Sundararajan and Keerthi's results also generalize to the case of
+an arbitrary nondegenerate invertible covariance matrix $C$. For such models,
+the LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
-  \mu_{\tilde{y},-i} & = y_i-\bar{c}_{ii}^{-1}g_i \nonumber \\
+  \mu_{\tilde{y},-i} &= y_i-\bar{c}_{ii}^{-1} g_i \nonumber \\
   \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
 \end{align}
 where 
 \begin{align}
-  g_i &= \left[C^{-1}y\right]_i \nonumber \\
+  g_i &= \left[C^{-1} y\right]_i \nonumber \\
   \bar{c}_{ii} &= \left[C^{-1}\right]_{ii}.
 \end{align}
 
-The log predictive density of observation $i$ is then computed as
+Using these results, the log predictive density of the $i$th observation is then
+computed as
 $$
-  \log p(y_i|y_{-i},\theta)
+  \log p(y_i \,|\, y_{-i},\theta)
   = - \frac{1}{2}\log(2\pi) 
   - \frac{1}{2}\log \sigma^2_{-i} 
   - \frac{1}{2}\frac{(y_i-\mu_{-i})^2}{\sigma^2_{-i}}.
 $$
-The above equation may also be written as follows:
+Expressing this same equation in terms of $g_i$ and $\bar{c}_{ii}$, the log
+predictive density becomes:
 $$
-  \log p(y_i|y_{-i},\theta) 
+  \log p(y_i \,|\, y_{-i},\theta) 
   = - \frac{1}{2}\log(2\pi) 
   + \frac{1}{2}\log \bar{c}_{ii} 
-  - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}
+  - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}.
 $$
-(note that Vehtari et al. (2016) has a typo in the corresponding Equation 34).
-Together, this provides a recipe to obtain the conditional pointwise
-log-likelihood for all models which can be expressed conditionally in terms of a
-multivariate normal model with an invertible covariance matrix $C$.
+(Note that Vehtari et al. (2016) has a typo in the corresponding Equation 34.)
+
+From these equations we can now derive a recipe for obtaining the conditional
+pointwise log-likelihood for _all_ models that can be expressed conditionally in
+terms of a multivariate normal with invertible covariance matrix $C$.
 
 ### Approximate LOO-CV using integrated importance-sampling
 
-The above LOO equations for multivariate normal models are conditional
-on parameters $\theta$. To obtain leave-one-out predictive density
-$p(y_i|y_{-i})$ we need to integrate over $\theta$
+The above LOO equations for multivariate normal models are conditional on
+parameters $\theta$. Therefore, to obtain the leave-one-out predictive density
+$p(y_i \,|\, y_{-i})$ we need to integrate over $\theta$,
 $$
-p(y_i|y_{-i}) = \int p(y_i|y_{-i}, \theta) p(\theta|y_{-i}) d\theta,
+p(y_i\,|\,y_{-i}) = 
+  \int p(y_i\,|\,y_{-i}, \theta) \, p(\theta\,|\,y_{-i}) \,d\theta.
 $$
-where $p(\theta|y_{-i})$ is the leave-one-out posterior for
-$\theta$. To avoid sampling from $N$ leave-one-out posteriors, it is
-possible to use posterior draws $\theta^{(s)}$ $(s=1,\ldots,S)$ from
-the full posterior distribution $p(\theta|y)$ and approximate the
-above integral with integrated importance sampling (Vehtari et al.,
-2016, Section 3.6.1):
+Here, $p(\theta\,|\,y_{-i})$ is the leave-one-out posterior distribution for
+$\theta$, that is, the posterior distribution for $\theta$ obtained by fitting
+the model while holding out the $i$th observation. To avoid the cost of 
+sampling from $N$ leave-one-out posteriors, it is possible to take the posterior
+draws $\theta^{(s)}, \, s=1,\ldots,S$, from the \emph{full} posterior
+$p(\theta\,|\,y)$, and then approximate the above integral using integrated
+importance sampling (Vehtari et al., 2016, Section 3.6.1):
 $$
- p(y_i|y_{-i}) \approx 
- \frac{ \sum_{s=1}^S  p(y_i|y_{-i}, \theta^{(s)}) w_i^{(s)}}{ \sum_{s=1}^S w_i^{(s)}},
+ p(y_i\,|\,y_{-i}) \approx 
+   \frac{ \sum_{s=1}^S p(y_i\,|\,y_{-i},\,\theta^{(s)}) \,w_i^{(s)}}{ \sum_{s=1}^S w_i^{(s)}},
 $$
-where $w_i^{(s)}$ are importance weights. We first compute raw importance ratios
+where $w_i^{(s)}$ are importance weights. 
+
+First we compute the raw importance ratios
 $$
-  r_i^{(s)} \propto \frac{1}{p(y_i | y_{-i}, \theta^{(s)})},
+  r_i^{(s)} \propto \frac{1}{p(y_i \,|\, y_{-i}, \,\theta^{(s)})},
 $$
-and then stabilize them using Pareto smoothed importance sampling
-method (PSIS, Vehtari et al, 2017b) to obtain the weights
-$w_i^{(s)}$. The resulting approximation is called Pareto-smoothed
-importance-sampling leave-one-out (PSIS-LOO, Vehtari et al, 2017a).
+and then stabilize them using Pareto smoothed importance sampling (PSIS, Vehtari
+et al, 2017b) to obtain the weights $w_i^{(s)}$. The resulting approximation is
+referred to as PSIS-LOO (Vehtari et al, 2017a).
 
 ### Exact LOO-CV with re-fit
 
-To validate the approximated LOO and to allow exact computation for a
-small number of leave-one-out folds for which Pareto $k$ diagnostic
-(Vehtari et al, 2017b) indicate unstable approximation , we need to
-consider how to do exact leave-one-out for non-factorizable model. In
-case of Gaussian process which has the marginalization property, we
-could just drop the one row and column of $C$ corresponding to left
-out observation. In general, this does not hold and to keep the
-original prior we need to keep the full covariance matrix $C$ also
-when one of the observations is left out. In this case, we can model
-$y_i$ as missing observation and fit it along with all other model
-parameters.
+In order to validate the approximate LOO procedure, and also in order to allow
+exact computations to made for a small number of leave-one-out folds for which
+the Pareto $k$ diagnostic (Vehtari et al, 2017b) indicates an unstable
+approximation, we need to consider how we might to do _exact_ leave-one-out CV
+for a non-factorizable model. In the case of a Gaussian process that has the
+marginalization property, we could just drop the one row and column of $C$
+corresponding to the held out out observation. This does not hold in general,
+however, and to keep the original prior we need to maintain the full covariance
+matrix $C$ even when one of the observations is left out. 
 
-In case of conditional multivariate normal model, $\log
-p(y_i|y_{-i})$ can be computed as follows. First, we model
-$y_i$ as missing and call corresponding parameter
-$y_{\mathrm{mis}}$. Then, we define
+The solution is to model $y_i$ as a missing observation and estimate it along
+with all of the other model parameters. For a conditional multivariate normal
+model, $\log p(y_i\,|\,y_{-i})$ can be computed as follows. First, we model
+$y_i$ as missing and denote the corresponding parameter $y_{\mathrm{mis}}$. 
+Then, we define 
 $$
-y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_{\mathrm{mis}}, y_{i+1}, \ldots, y_n).
+y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_{\mathrm{mis}}, y_{i+1}, \ldots, y_N).
 $$
+to be the same as the full set of observations $y$, except replacing $y_i$
+with the parameter $y_{\mathrm{mis}}$. 
+
 Second, we compute the LOO predictive mean and standard deviations as above, but
 replace $y$ with $y_{\mathrm{mis}(i)}$ in the computation of
 $\mu_{\tilde{y},-i}$:
@@ -139,17 +153,17 @@ $$
 The conditional log predictive density is then computed with the above
 $\mu_{\tilde{y},-i}$ and the left out observation $y_i$
 $$
-  \log p(y_i|y_{-i},\theta)
+  \log p(y_i\,|\,y_{-i},\theta)
   = - \frac{1}{2}\log(2\pi) 
   - \frac{1}{2}\log \sigma^2_{\tilde{y},-i} 
   - \frac{1}{2}\frac{(y_i-\mu_{\tilde{y},-i})^2}{\sigma^2_{\tilde{y},-i}}.
 $$
-Leave-one-out predictive distribution can then be estimated as
+Finally, the leave-one-out predictive distribution can then be estimated as
 $$
- p(y_i|y_{-i}) \approx \sum_{s=1}^S p(y_i|y_{-i}, \theta_{-i}^{(s)}),
+ p(y_i\,|\,y_{-i}) \approx \sum_{s=1}^S p(y_i\,|\,y_{-i}, \theta_{-i}^{(s)}),
 $$
-where $\theta_{-i}^{(s)}$ are draws from
-the posterior distribution $p(\theta|y_{\mathrm{mis}(i)})$.
+where $\theta_{-i}^{(s)}$ are draws from the posterior distribution 
+$p(\theta\,|\,y_{\mathrm{mis}(i)})$.
 
 ## Lagged SAR models
 
