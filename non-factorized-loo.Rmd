@@ -206,16 +206,17 @@ $$
 This corresponds to the following log probability density function coded in
 **Stan**:
 
-```{r, eval = FALSE}
-/* normal log-pdf for spatially lagged responses
- * Args:
- *   y: the response vector
- *   mu: mean parameter vector
- *   sigma: residual standard deviation
- *   rho: positive autoregressive parameter
- *   W: spatial weight matrix
- * Returns:  
- *   a scalar to be added to the log posterior
+```c++
+/** 
+ * Normal log-pdf for spatially lagged responses
+ * 
+ * @param y Vector of response values.
+ * @param mu Mean parameter vector.
+ * @param sigma Positive scalar residual standard deviation.
+ * @param rho Positive scalar autoregressive parameter
+ * @param W Spatial weight matrix.
+ *
+ * @return A scalar to be added to the log posterior.
  */
 real normal_lagsar_lpdf(vector y, vector mu, real sigma,
                         real rho, matrix W) {
