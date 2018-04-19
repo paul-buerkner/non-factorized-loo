@@ -394,9 +394,87 @@ ggplot(data=df, aes(x = approx_elpd, y = exact_elpd)) +
 <pre class="r"><code>round(sum(exact_elpds[-4]),1)      </code></pre>
 <pre><code>[1] -173</code></pre>
 <p>Accordingly, the differences found when including all observations do not indicate a bug in our implementation of the approximate LOO-CV but are rather the result of violations of its assumptions.</p>
-<p>In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.</p>
-<p><br /></p>
 </div>
+</div>
+<div id="working-with-stan-directly" class="section level2">
+<h2>Working with Stan directly</h2>
+<p>So far, we have specified the models in brms and only used Stan implicitely behind the scenes. This allowed us to focus on the primary purpose of validating approximate LOO-CV for non-factorized models. However, we would also like to show how everything can be set up in Stan directly. The Stan code brms generates is human readable and so we can use it to learn some of the essential aspects of Stan and the particular model we are implementing. The Stan code below was extracted via <code>stancode(fit_dummy)</code>:</p>
+<pre class="r"><code>&quot;// generated with brms 2.2.0
+functions {
+  /* normal log-pdf for spatially lagged responses 
+   * Args: 
+   *   y: the response vector 
+   *   mu: mean parameter vector
+   *   sigma: residual standard deviation
+   *   rho: positive autoregressive parameter
+   *   W: spatial weight matrix
+   * Returns:  
+   *   a scalar to be added to the log posterior 
+   */ 
+   real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
+                           real rho, matrix W) { 
+     matrix[rows(y), rows(y)] W_new;
+     vector[rows(y)] half_pred;
+     real inv_sigma2;
+     W_new = diag_matrix(rep_vector(1.0, rows(y))) - rho * W;
+     half_pred  = W_new * (y - mdivide_left(W_new, mu));
+     inv_sigma2 = 1 / sigma^2;
+     return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) - 
+            0.5 * dot_self(half_pred) * inv_sigma2;
+   }
+} 
+data { 
+  int&lt;lower=1&gt; N;  // total number of observations 
+  vector[N] Y;  // response variable 
+  int&lt;lower=0&gt; Nmi;  // number of missings 
+  int&lt;lower=1&gt; Jmi[Nmi];  // positions of missings 
+  int&lt;lower=1&gt; K;  // number of population-level effects 
+  matrix[N, K] X;  // population-level design matrix 
+  matrix[N, N] W;  // spatial weight matrix 
+  int prior_only;  // should the likelihood be ignored? 
+} 
+transformed data { 
+  int Kc = K - 1; 
+  matrix[N, K - 1] Xc;  // centered version of X 
+  vector[K - 1] means_X;  // column means of X before centering 
+  for (i in 2:K) { 
+    means_X[i - 1] = mean(X[, i]); 
+    Xc[, i - 1] = X[, i] - means_X[i - 1]; 
+  } 
+} 
+parameters { 
+  vector[Nmi] Ymi;  // estimated missings
+  vector[Kc] b;  // population-level effects 
+  real temp_Intercept;  // temporary intercept 
+  real&lt;lower=0&gt; sigma;  // residual SD 
+  real&lt;lower=0,upper=1&gt; lagsar;  // SAR parameter 
+} 
+transformed parameters { 
+} 
+model { 
+  vector[N] Yl = Y;
+  vector[N] mu = Xc * b + temp_Intercept; 
+  Yl[Jmi] = Ymi;
+  // priors including all constants 
+  target += student_t_lpdf(temp_Intercept | 3, 34, 17); 
+  target += student_t_lpdf(sigma | 3, 0, 17)
+    - 1 * student_t_lccdf(0 | 3, 0, 17); 
+  // likelihood including all constants 
+  if (!prior_only) { 
+    target += normal_lagsar_lpdf(Yl | mu, sigma, lagsar, W); 
+  } 
+} 
+generated quantities { 
+  // actual population-level intercept 
+  real b_Intercept = temp_Intercept - dot_product(means_X, b); 
+}&quot;</code></pre>
+<p>Here, we want to focus on two aspects of the Stan code. First, the log-likelihood is implemented by means of a user-defined function, which we called <code>normal_lagsar_lpdf</code>. It implements the log-likelihood of the lag-SAR model described above in a (hopefully) efficient and numerically stable way. The <code>_lpdf</code> suffix is important to tell Stan that this is a log probability density function. Second, the above Stan code nicely illustrates how to set up missing value imputation. Instead of just computing the log-likelihood for the observed responses <code>Y</code>, we define a new variable <code>Yt</code> which is equal to <code>Y</code> if the reponse is observed and equal to <code>Ymi</code> if the response is missing. The latter is in turn defined as a parameter and thus estimated along with all other paramters of the model. More details about missing value imputation in Stan can be found in Section 11 of the <a href="http://mc-stan.org/users/documentation/index.html">Stan manual</a>.</p>
+<p>Stan code extracted from brms is not only helpful when learning Stan, but can also drastically speed up the specification of models in Stan which are not support by brms. Suppose that brms can fit a model similar but not identical to the desired model. Then, one can let brms generate the Stan code of the similar model and customize it based on ones own needs. In this case, it is often unpratical to use <code>stancode()</code> on a fitted model object, because we actually don’t need the fitted model. Instead, we can use <code>make_stancode()</code> to generate the Stan code directly. The appropriate data can be prepared (and then manually amended if needed) via <code>make_standata()</code>. Both Stan code and data can be passed to (R)Stan via <code>rstan::stan(model_code = &lt;your Stan code&gt;, data = &lt;your Stan data&gt;)</code> in order to fit the model.</p>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models using brms and Stan. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.</p>
+<p><br /></p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
@@ -431,34 +509,31 @@ other attached packages:
 [4] Rcpp_0.12.16      
 
 loaded via a namespace (and not attached):
- [1] Brobdingnag_1.2-5    splines_3.4.3        gtools_3.5.0        
- [4] StanHeaders_2.17.2   threejs_0.3.1        shiny_1.0.5         
- [7] assertthat_0.2.0     expm_0.999-2         sp_1.2-7            
-[10] stats4_3.4.3         yaml_2.1.18          LearnBayes_2.15.1   
-[13] pillar_1.2.1         backports_1.1.2      lattice_0.20-35     
-[16] glue_1.2.0           digest_0.6.15        colorspace_1.3-2    
-[19] htmltools_0.3.6      httpuv_1.3.6.2       Matrix_1.2-12       
-[22] plyr_1.8.4           dygraphs_1.1.1.4     pkgconfig_2.0.1     
-[25] rstan_2.17.3         gmodels_2.16.2       xtable_1.8-2        
-[28] mvtnorm_1.0-7        scales_0.5.0.9000    gdata_2.18.0        
-[31] tibble_1.4.2         bayesplot_1.5.0      DT_0.4              
-[34] withr_2.1.2          shinyjs_1.0          lazyeval_0.2.1      
-[37] magrittr_1.5         mime_0.5             deldir_0.1-15       
-[40] evaluate_0.10.1      nlme_3.1-131         MASS_7.3-47         
-[43] xts_0.10-2           colourpicker_1.0     rsconnect_0.8.8     
-[46] tools_3.4.3          matrixStats_0.53.1   stringr_1.3.0       
-[49] munsell_0.4.3        bindrcpp_0.2.2       compiler_3.4.3      
-[52] rlang_0.2.0          grid_3.4.3           ggridges_0.5.0      
-[55] htmlwidgets_1.0      crosstalk_1.0.0      igraph_1.2.1        
-[58] miniUI_0.1.1         labeling_0.3         base64enc_0.1-3     
-[61] rmarkdown_1.9        boot_1.3-20          gtable_0.2.0        
-[64] codetools_0.2-15     inline_0.3.14        abind_1.4-5         
-[67] markdown_0.8         reshape2_1.4.3       R6_2.2.2            
-[70] gridExtra_2.3        rstantools_1.4.0     zoo_1.8-1           
-[73] knitr_1.20           bridgesampling_0.4-0 dplyr_0.7.4         
-[76] bindr_0.1.1          shinystan_2.4.0      shinythemes_1.1.1   
-[79] rprojroot_1.3-2      spdep_0.7-7          stringi_1.1.7       
-[82] parallel_3.4.3       spData_0.2.8.3       coda_0.19-1         </code></pre>
+ [1] mvtnorm_1.0-7        lattice_0.20-35      gtools_3.5.0        
+ [4] zoo_1.8-1            assertthat_0.2.0     rprojroot_1.3-2     
+ [7] digest_0.6.15        mime_0.5             R6_2.2.2            
+[10] plyr_1.8.4           ggridges_0.5.0       backports_1.1.2     
+[13] stats4_3.4.3         evaluate_0.10.1      coda_0.19-1         
+[16] colourpicker_1.0     pillar_1.2.1         rlang_0.2.0         
+[19] lazyeval_0.2.1       miniUI_0.1.1         Matrix_1.2-12       
+[22] DT_0.4               rmarkdown_1.9        labeling_0.3        
+[25] shinythemes_1.1.1    shinyjs_1.0          stringr_1.3.0       
+[28] htmlwidgets_1.0      igraph_1.2.1         munsell_0.4.3       
+[31] shiny_1.0.5          compiler_3.4.3       httpuv_1.3.6.2      
+[34] rstan_2.17.3         pkgconfig_2.0.1      base64enc_0.1-3     
+[37] rstantools_1.4.0     htmltools_0.3.6      tibble_1.4.2        
+[40] gridExtra_2.3        codetools_0.2-15     threejs_0.3.1       
+[43] matrixStats_0.53.1   dplyr_0.7.4          withr_2.1.2         
+[46] grid_3.4.3           nlme_3.1-131         xtable_1.8-2        
+[49] gtable_0.2.0         magrittr_1.5         StanHeaders_2.17.2  
+[52] scales_0.5.0.9000    stringi_1.1.7        reshape2_1.4.3      
+[55] bindrcpp_0.2.2       dygraphs_1.1.1.4     xts_0.10-2          
+[58] tools_3.4.3          glue_1.2.0           markdown_0.8        
+[61] shinystan_2.4.0      crosstalk_1.0.0      rsconnect_0.8.8     
+[64] abind_1.4-5          parallel_3.4.3       yaml_2.1.18         
+[67] inline_0.3.14        colorspace_1.3-2     bridgesampling_0.4-0
+[70] bayesplot_1.5.0      knitr_1.20           bindr_0.1.1         
+[73] Brobdingnag_1.2-5   </code></pre>
 </div>
 <div id="appendix-licenses" class="section level3">
 <h3>Appendix: Licenses</h3>

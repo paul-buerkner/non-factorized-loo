@@ -352,7 +352,89 @@ round(sum(exact_elpds[-4]),1)
 
 Accordingly, the differences found when including all observations do not indicate a bug in our implementation of the approximate LOO-CV but are rather the result of violations of its assumptions.
 
-In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.
+## Working with Stan directly
+
+So far, we have specified the models in brms and only used Stan implicitely behind the scenes. This allowed us to focus on the primary purpose of validating approximate LOO-CV for non-factorized models. However, we would also like to show how everything can be set up in Stan directly. The Stan code brms generates is human readable and so we can use it to learn some of the essential aspects of Stan and the particular model we are implementing. The Stan code below was extracted via `stancode(fit_dummy)`:
+
+```{r, results="hide"}
+"// generated with brms 2.2.0
+functions {
+  /* normal log-pdf for spatially lagged responses 
+   * Args: 
+   *   y: the response vector 
+   *   mu: mean parameter vector
+   *   sigma: residual standard deviation
+   *   rho: positive autoregressive parameter
+   *   W: spatial weight matrix
+   * Returns:  
+   *   a scalar to be added to the log posterior 
+   */ 
+   real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
+                           real rho, matrix W) { 
+     matrix[rows(y), rows(y)] W_new;
+     vector[rows(y)] half_pred;
+     real inv_sigma2;
+     W_new = diag_matrix(rep_vector(1.0, rows(y))) - rho * W;
+     half_pred  = W_new * (y - mdivide_left(W_new, mu));
+     inv_sigma2 = 1 / sigma^2;
+     return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) - 
+            0.5 * dot_self(half_pred) * inv_sigma2;
+   }
+} 
+data { 
+  int<lower=1> N;  // total number of observations 
+  vector[N] Y;  // response variable 
+  int<lower=0> Nmi;  // number of missings 
+  int<lower=1> Jmi[Nmi];  // positions of missings 
+  int<lower=1> K;  // number of population-level effects 
+  matrix[N, K] X;  // population-level design matrix 
+  matrix[N, N] W;  // spatial weight matrix 
+  int prior_only;  // should the likelihood be ignored? 
+} 
+transformed data { 
+  int Kc = K - 1; 
+  matrix[N, K - 1] Xc;  // centered version of X 
+  vector[K - 1] means_X;  // column means of X before centering 
+  for (i in 2:K) { 
+    means_X[i - 1] = mean(X[, i]); 
+    Xc[, i - 1] = X[, i] - means_X[i - 1]; 
+  } 
+} 
+parameters { 
+  vector[Nmi] Ymi;  // estimated missings
+  vector[Kc] b;  // population-level effects 
+  real temp_Intercept;  // temporary intercept 
+  real<lower=0> sigma;  // residual SD 
+  real<lower=0,upper=1> lagsar;  // SAR parameter 
+} 
+transformed parameters { 
+} 
+model { 
+  vector[N] Yl = Y;
+  vector[N] mu = Xc * b + temp_Intercept; 
+  Yl[Jmi] = Ymi;
+  // priors including all constants 
+  target += student_t_lpdf(temp_Intercept | 3, 34, 17); 
+  target += student_t_lpdf(sigma | 3, 0, 17)
+    - 1 * student_t_lccdf(0 | 3, 0, 17); 
+  // likelihood including all constants 
+  if (!prior_only) { 
+    target += normal_lagsar_lpdf(Yl | mu, sigma, lagsar, W); 
+  } 
+} 
+generated quantities { 
+  // actual population-level intercept 
+  real b_Intercept = temp_Intercept - dot_product(means_X, b); 
+}"
+```
+
+Here, we want to focus on two aspects of the Stan code. First, the log-likelihood is implemented by means of a user-defined function, which we called `normal_lagsar_lpdf`. It implements the log-likelihood of the lag-SAR model described above in a (hopefully) efficient and numerically stable way. The `_lpdf` suffix is important to tell Stan that this is a log probability density function. Second, the above Stan code nicely illustrates how to set up missing value imputation. Instead of just computing the log-likelihood for the observed responses `Y`, we define a new variable `Yt` which is equal to `Y` if the reponse is observed and equal to `Ymi` if the response is missing. The latter is in turn defined as a parameter and thus estimated along with all other paramters of the model. More details about missing value imputation in Stan can be found in Section 11 of the [Stan manual](http://mc-stan.org/users/documentation/index.html). 
+
+Stan code extracted from brms is not only helpful when learning Stan, but can also drastically speed up the specification of models in Stan which are not support by brms. Suppose that brms can fit a model similar but not identical to the desired model. Then, one can let brms generate the Stan code of the similar model and customize it based on ones own needs. In this case, it is often unpratical to use `stancode()` on a fitted model object, because we actually don't need the fitted model. Instead, we can use `make_stancode()` to generate the Stan code directly. The appropriate data can be prepared (and then manually amended if needed) via `make_standata()`. Both Stan code and data can be passed to (R)Stan via `rstan::stan(model_code = <your Stan code>, data = <your Stan data>)` in order to fit the model.
+
+## Conclusion
+
+In summary, we have shown how to set up and validate approximate and exact LOO-CV for non-factorized multivariate normal models using brms and Stan. As an example we considered spatial SAR models, but the presented recipe applies to any model which can be expressed in terms of a multivariate normal likelihood.
 
 <br />
 
