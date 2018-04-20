@@ -374,11 +374,12 @@ ggplot(data=df, aes(x = y, y = yloo, ymin = ymin, ymax = ymax)) +
   geom_abline(size = 1.2)
 ```
 
-Finally, we compute the PSIS-LOO information criterion, which we will validate
-using exact LOO-CV in the upcoming section.
+Finally, we use PSIS-LOO to approximate the expected log predictive density
+(ELPD) for new data, which we will validate using exact LOO-CV in the upcoming
+section.
 
 ```{r}
-(psis_looic <- loo(loglik))
+(psis_loo <- loo(loglik))
 ```
 
 ### Exact LOO-CV
@@ -447,9 +448,8 @@ ggplot(res_sub, aes(y, fill = type)) +
   facet_wrap("obs", scales = "free", ncol = 5)
 ```
 
-In the final step, we compute the expected log predictive density (ELPD) based
-on the exact LOO-CV and compare it to the approximate PSIS-LOO result computed
-earlier.
+In the final step, we compute the ELPD based on the exact LOO-CV and compare it
+to the approximate PSIS-LOO result computed earlier.
 
 ```{r loo_exact, cache=FALSE}
 log_mean_exp <- function(x) {
@@ -469,7 +469,7 @@ exact pointwise ELPD values.
 
 ```{r, fig.height=3}
 df <- data.frame(
-  approx_elpd = psis_looic$pointwise[, "elpd_loo"],
+  approx_elpd = psis_loo$pointwise[, "elpd_loo"],
   exact_elpd = exact_elpds
 )
 ggplot(df, aes(x = approx_elpd, y = exact_elpd)) +
@@ -485,7 +485,7 @@ observation yields practically equivalent results for approximate and exact
 LOO-CV:
 
 ````{r}
-round(sum(psis_looic$pointwise[-4, "elpd_loo"]), 1)
+round(sum(psis_loo$pointwise[-4, "elpd_loo"]), 1)
 round(sum(exact_elpds[-4]), 1)	   
 ```
 
