@@ -450,15 +450,15 @@ the distribution of the implied response values for the left-out observation to
 the distribution of the $y_i^{\mathrm{mis}}$ posterior-predictive values
 estimated as part of the model. If the pointwise predictive density is correct,
 the two distributions should match very closely (up to sampling error). In the
-plot below, we overlay these two distributions for the first five observations
+plot below, we overlay these two distributions for the first four observations
 and see that they match very closely (as is the case for all $49$ observations
 of in this example).
 
-```{r yplots, cache = FALSE, fig.width=10, fig.height=3}
-res_sub <- res[res$obs %in% 1:5, ]
+```{r yplots, cache = FALSE, fig.width=10, out.width="95%", fig.asp = 0.3}
+res_sub <- res[res$obs %in% 1:4, ]
 ggplot(res_sub, aes(y, fill = type)) +
   geom_density(alpha = 0.6) +
-  facet_wrap("obs", scales = "fixed", ncol = 5)
+  facet_wrap("obs", scales = "fixed", ncol = 4)
 ```
 
 In the final step, we compute the ELPD based on the exact LOO-CV and compare it
