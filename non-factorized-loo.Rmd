@@ -1,6 +1,6 @@
 ---
 title: "Leave-one-out cross-validation for non-factorized models"
-author: Aki Vehtari & Paul Buerkner
+author: Aki Vehtari, Paul Buerkner and Jonah Gabry
 output:
   html_document: default
   pdf_document: default
