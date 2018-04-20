@@ -8,8 +8,17 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  cache=TRUE, message=FALSE, error=FALSE,
-  warning=FALSE, comment=NA, out.width='95%'
+  cache=TRUE, 
+  message=FALSE, 
+  error=FALSE,
+  warning=FALSE, 
+  comment=NA, 
+  dev = "png",
+  dpi = 150,
+  fig.asp = 0.618,
+  fig.width = 5,
+  out.width = "60%",
+  fig.align = "center"
 )
 ```
 
