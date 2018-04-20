@@ -427,7 +427,11 @@ the exact LOO-CV and compare it to the approximate PSIS-LOO result computed
 earlier.
 
 ```{r loo_exact, cache=FALSE}
-exact_elpds <- apply(loglik, 2, brms:::log_mean_exp)
+log_mean_exp <- function(x) {
+  max_x <- max(x)
+  max_x + log(sum(exp(x - max_x))) - log(length(x))
+}
+exact_elpds <- apply(loglik, 2, log_mean_exp)
 round(exact_elpd <- sum(exact_elpds),1)
 round(exact_looic <- -2 * exact_elpd,1)
 ```
