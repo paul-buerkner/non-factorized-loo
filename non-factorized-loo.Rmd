@@ -225,9 +225,13 @@ which corresponds to the following log probability density function coded in
 real normal_lagsar_lpdf(vector y, vector mu, real sigma, 
                         real rho, matrix W) {
   int N = rows(y);
-  matrix[N,N] W_new = diag_matrix(rep_vector(1, N)) - rho * W;
-  vector[N] half_pred = W_new * (y - mdivide_left(W_new, mu));
   real inv_sigma2 = 1 / square(sigma);
+  matrix[N, N] W_tilde = -rho * W;
+  vector[N] half_pred;
+  
+  for (n in 1:N) W_tilde[n,n] += 1;
+  
+  half_pred = W_new * (y - mdivide_left(W_new, mu));
   
   return 0.5 * log_determinant(crossprod(W_new) * inv_sigma2) -
          0.5 * dot_self(half_pred) * inv_sigma2;
