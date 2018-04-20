@@ -505,11 +505,11 @@ behind the scenes. This allowed us to focus on the primary purpose of validating
 approximate LOO-CV for non-factorized models. However, we would also like to
 show how everything can be set up in Stan directly. The Stan code brms generates
 is human readable and so we can use it to learn some of the essential aspects of
-Stan and the particular model we are implementing. The Stan code below was
-extracted via `stancode(fit_dummy)`:
+Stan and the particular model we are implementing. The Stan program below is
+a slightly modified version of the code extracted via `stancode(fit_dummy)`:
 
-```{r, results="hide"}
-"// generated with brms 2.2.0
+```{c++, eval=FALSE}
+// generated with brms 2.2.0
 functions {
 /** 
  * Normal log-pdf for spatially lagged responses
@@ -578,15 +578,18 @@ model {
 generated quantities {
   // actual population-level intercept
   real b_Intercept = temp_Intercept - dot_product(means_X, b);
-}"
+}
 ```
 
-Here we want to focus on two aspects of the Stan code. First, the
-log-likelihood is implemented by means of a user-defined function, which we
-call `normal_lagsar_lpdf`. It implements the log-likelihood of the lag-SAR
-model described above in a (hopefully) efficient and numerically stable way. The
-`_lpdf` suffix informs Stan that this is a log probability density
-function. Second, the above Stan code nicely illustrates how to set up missing
+Here we want to focus on two aspects of the Stan code. First, because there is
+no built-in function in Stan that calculates the log-likelihood for the lag-SAR
+model, we define a new `normal_lagsar_lpdf` function in the `functions` block of
+the Stan program. This is the same function we showed earlier in the vignette
+and it can be used to compute the log-likelihood in an efficient and numerically
+stable way. The `_lpdf` suffix used in the function name informs Stan that this
+is a log probability density function.
+
+Second, this Stan program nicely illustrates how to set up missing
 value imputation. Instead of just computing the log-likelihood for the observed
 responses `Y`, we define a new variable `Yl` which is equal to `Y` if the
 reponse is observed and equal to `Ymi` if the response is missing. The latter is
@@ -595,25 +598,25 @@ of the model. More details about missing value imputation in Stan can be found
 in the *Missing Data & Partially Known Parameters* section of the
 [Stan manual](http://mc-stan.org/users/documentation/index.html).
 
-Stan code extracted from brms is not only helpful when learning Stan, but can
-also drastically speed up the specification of models in Stan which are not
-support by brms. Suppose that brms can fit a model similar but not identical to
-the desired model. Then, one can let brms generate the Stan code of the similar
-model and customize it based on ones own needs. In this case, it is often
-impractical to use `stancode()` on a fitted model object, because we actually
-don't need the fitted model. Instead, we can use `make_stancode()` to generate
-the Stan code directly. The appropriate data can be prepared (and then manually
-amended if needed) via `make_standata()`. Both Stan code and data can be passed
-to (R)Stan via
-`rstan::stan(model_code = <your Stan code>, data = <your Stan data>)`
-in order to fit the model.
+The Stan code extracted from brms is not only helpful when learning Stan, but
+can also drastically speed up the specification of models that are not support
+by brms. If brms can fit a model similar but not identical to the desired model,
+we can let brms generate the Stan program for the similar model and then mold it
+into the program that implements the model we actually want to fit. Rather than
+calling `stancode()`, which requires an existing fitted model object, we
+recommend using `make_stancode()` and specifying the `save_model` argument to
+write the Stan program to a file. The corresponding data can be prepared with
+`make_standata()` and then manually amended if needed. Once the code and data
+have been edited, they can be passed to RStan's `stan()` function via the `file`
+and `data` arguments.
 
 ## Conclusion
 
 In summary, we have shown how to set up and validate approximate and exact
-LOO-CV for non-factorized multivariate normal models using brms and Stan. As an
-example we considered spatial SAR models, but the presented recipe applies to
-any model that can be expressed in terms of a multivariate normal likelihood.
+LOO-CV for non-factorized multivariate normal models using Stan with the
+**brms** and **loo** packages. Although we focused on the particular example of
+a spatial SAR model, the presented recipe applies more generally to models that
+can be expressed in terms of a multivariate normal likelihood.
 
 <br />
 
@@ -641,5 +644,5 @@ sessionInfo()
 
 ### Appendix: Licenses
 
-* Code &copy; 2018, Aki Vehtari & Paul Buerkner, licensed under BSD-3.
-* Text &copy; 2018, Aki Vehtari & Paul Buerkner, licensed under CC-BY-NC 4.0.
+* Code &copy; 2018, Aki Vehtari, Paul Buerkner and Jonah Gabry, licensed under BSD-3.
+* Text &copy; 2018, Aki Vehtari, Paul Buerkner and Jonah Gabry, licensed under CC-BY-NC 4.0.
