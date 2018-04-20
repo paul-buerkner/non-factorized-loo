@@ -369,9 +369,13 @@ df <- data.frame(
   ymax = yloo_sub + sdloo_sub * 2
 )
 ggplot(data=df, aes(x = y, y = yloo, ymin = ymin, ymax = ymax)) +
-  geom_errorbar(width = 1, color = "skyblue3") +
-  geom_point() +
-  geom_abline(size = 1.2)
+  geom_errorbar(
+    width = 1, 
+    color = "skyblue3", 
+    position = position_jitter(width = 0.25)
+  ) +
+  geom_abline(color = "gray30", size = 1.2) +
+  geom_point()
 ```
 
 Finally, we use PSIS-LOO to approximate the expected log predictive density
