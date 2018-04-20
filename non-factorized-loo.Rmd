@@ -445,11 +445,11 @@ plot below, we overlay these two distributions for the first five observations
 and see that they match very closely (as is the case for all $49$ observations
 of in this example).
 
-```{r yplots, fig.width=10, cache = FALSE}
+```{r yplots, cache = FALSE, fig.width=10, fig.height=3}
 res_sub <- res[res$obs %in% 1:5, ]
 ggplot(res_sub, aes(y, fill = type)) +
-  geom_density(alpha = 0.7) +
-  facet_wrap("obs", scales = "free", ncol = 5)
+  geom_density(alpha = 0.6) +
+  facet_wrap("obs", scales = "fixed", ncol = 5)
 ```
 
 In the final step, we compute the ELPD based on the exact LOO-CV and compare it
