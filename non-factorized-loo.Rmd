@@ -145,17 +145,17 @@ matrix $C$ even when one of the observations is left out.
 The solution is to model $y_i$ as a missing observation and estimate it along
 with all of the other model parameters. For a conditional multivariate normal
 model, $\log p(y_i\,|\,y_{-i})$ can be computed as follows. First, we model
-$y_i$ as missing and denote the corresponding parameter $y_{\mathrm{mis}}$.
+$y_i$ as missing and denote the corresponding parameter $y_i^{\mathrm{mis}}$.
 Then, we define
+
 $$
-y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_{\mathrm{mis}}, y_{i+1}, \ldots, y_N).
+y_{\mathrm{mis}(i)} = (y_1, \ldots, y_{i-1}, y_i^{\mathrm{mis}}, y_{i+1}, \ldots, y_N).
 $$
 to be the same as the full set of observations $y$, except replacing $y_i$
-with the parameter $y_{\mathrm{mis}}$.
+with the parameter $y_i^{\mathrm{mis}}$.
 
 Second, we compute the LOO predictive mean and standard deviations as above, but
 replace $y$ with $y_{\mathrm{mis}(i)}$ in the computation of $\mu_{\tilde{y},-i}$:
-
 $$
 \mu_{\tilde{y},-i} = y_{{\mathrm{mis}}(i)}-\bar{c}_{ii}^{-1}g_i,
 $$
@@ -173,10 +173,13 @@ $$
   - \frac{1}{2}\log \sigma^2_{\tilde{y},-i}
   - \frac{1}{2}\frac{(y_i-\mu_{\tilde{y},-i})^2}{\sigma^2_{\tilde{y},-i}}.
 $$
+
 Finally, the leave-one-out predictive distribution can then be estimated as
+
 $$
  p(y_i\,|\,y_{-i}) \approx \sum_{s=1}^S p(y_i\,|\,y_{-i}, \theta_{-i}^{(s)}),
 $$
+
 where $\theta_{-i}^{(s)}$ are draws from the posterior distribution
 $p(\theta\,|\,y_{\mathrm{mis}(i)})$.
 
@@ -193,20 +196,21 @@ $$
 (I - \rho W)y = \eta + \epsilon,
 $$
 where $\rho$ is the spatial correlation parameter and $W$ is a user-defined
-weight matrix with $w_{ii} = 0$ as well as higher values $w_{ij}$ in the
-off-diagonal for areas $i$ and $j$ closer to each other. In a linear model, the
-predictor term $\eta$ is given by $\eta = X \beta$ with design matrix $X$ and
-regression coefficients $\beta$. However, since the above equation holds for
-arbitrary $\eta$, there is no need to restrict to linear models. If $\epsilon
-\sim {\mathrm N}(0,\sigma^2 I)$, then
-$$
-(I - \rho W)y \sim {\mathrm N}(\eta, \sigma^2 I).
-$$
+weight matrix. The matrix $W$ has entries $w_{ii} = 0$ along the diagonal 
+and the off-diagonal entries $w_{ij}$ are larger when areas $i$ and $j$ are 
+closer to each other. In a linear model, the predictor term $\eta$ is given by
+$\eta = X \beta$ with design matrix $X$ and regression coefficients $\beta$.
+However, since the above equation holds for arbitrary $\eta$, these results are
+not restricted to linear models. 
 
-This corresponds to the following log probability density function coded in
+If we have $\epsilon \sim {\mathrm N}(0, \,\sigma^2 I)$, it follows that
+$$
+(I - \rho W)y \sim {\mathrm N}(\eta, \sigma^2 I),
+$$
+which corresponds to the following log probability density function coded in
 **Stan**:
 
-```c++
+```{c++,eval=FALSE}
 /** 
  * Normal log-pdf for spatially lagged responses
  * 
@@ -230,63 +234,81 @@ real normal_lagsar_lpdf(vector y, vector mu, real sigma,
 }
 ```
 
-For the purpose of computing LOO-CV, it makes sense to rewrite the SAR model as
+For the purpose of computing LOO-CV, it makes sense to rewrite the SAR model 
+in slightly different form. Conditional on $\rho$, $\eta$, and $\sigma$, 
+if we write
 \begin{align}
-y-(I-\rho W)^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(I-\rho W)^{-1}(I-\rho W)^{-T}).
+y-(I-\rho W)^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(I-\rho W)^{-1}(I-\rho W)^{-T}),
 \end{align}
-or with $\tilde{W}=(I-\rho W)$ more compactly
+or more compactly, with $\widetilde{W}=(I-\rho W)$,
 \begin{align}
-y-\tilde{W}^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(\tilde{W}^{T}\tilde{W})^{-1}).
+y-\widetilde{W}^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(\widetilde{W}^{T}\widetilde{W})^{-1}),
 \end{align}
+then this has the same form as the zero mean Gaussian process from above.
+Accordingly, we can compute the leave-one-out predictive densities with the
+equations from Sundararajan and Keerthi (2001), replacing $y$ with
+$(y-\widetilde{W}^{-1}\eta)$ and taking the covariance matrix $C$ to be
+$\sigma^2(\widetilde{W}^{T}\widetilde{W})^{-1}$.
 
-Conditionally on $\rho$, $\eta$, and $\sigma$, this is has the same form as zero
-mean Gaussian process. Accordingly, we can compute the leave-one-out predictive
-densities with the equations by Sundararajan and Keerthi (2001) replacing $y$
-with $(y-\tilde{W}^{-1}\eta)$ and using
-$C = \sigma^2(\tilde{W}^{T}\tilde{W})^{-1}$.
 
-## Case Study: Neighborhood Crime in Columbus
+## Case Study: Neighborhood Crime in Columbus, Ohio
 
-As an example, we will use a data set about the neighborhood crime in Columbus
-initially described in Aneslin (1988) and shipped with the **spdep** package
-in R.
+In order to demonstrate how to carry out the computations implied by these
+equations, we will first fit a lagged SAR model to data on crime in 49 different
+neighborhoods of Columbus, Ohio during the year 1980. The data was originally
+described in Aneslin (1988) and ships with the **spdep** R package.
 
-```{r}
-data(oldcol, package = "spdep")
-```
-
-Among others, the data contain the number of residential burglaries and vehicle
-thefts per thousand households in the neighborhood (variable `CRIME`), the
-housing value `HOVAL` as well as the household income `INC` (both in 1000 USD).
-In addition, the data set includes the object `COL.nb`, from which the spatial
-weight matrix of the neighborhoods can be constructed to account for spatial
-dependency of the observations. For the analysis, we will be using the **brms**
-package, LOO-CV will be performed by means of the **loo** package and plotting
-with **ggplot2**.
+For the analysis we will use the **brms** package to fit the model, 
+the **loo** packge for LOO-CV, and **ggplot2** for plotting.
 
 ```{r, cache=FALSE}
 library(brms)
 library(loo)
 library(ggplot2)
 theme_set(theme_default())
+
+# loads COL.OLD data frame and COL.nb neighbor list
+data(oldcol, package = "spdep") 
 ```
 
-A model predicting `CRIME` with `INC` and `HOVAL`, while accounting for the
-spatial dependency via an SAR structure, can be specified as follows.
+The three variables in the data set relevant to this example are:
+
+* `CRIME`: the number of residential burglaries and vehicle thefts per thousand
+households in the neighbood
+* `HOVAL`: housing value in units of $1000 USD 
+* `INC`: household income in units of $1000 USD
+
+```{r}
+str(COL.OLD[, c("CRIME", "HOVAL", "INC")])
+```
+
+We will also use the object `COL.nb`, which is a list containing information
+about which neighborhoods border each other. From this list we will be able to
+construct the weight matrix to used to help account for the spatial dependency
+among the observations.
+
+### Fit lagged SAR model
+
+A model predicting `CRIME` from `INC` and `HOVAL`, while accounting for the
+spatial dependency via an SAR structure, can be specified in **brms**
+as follows.
 
 ```{r fit}
 fit <- brm(
-  CRIME ~ INC + HOVAL, data = COL.OLD,
+  CRIME ~ INC + HOVAL, 
+  data = COL.OLD,
   autocor = cor_lagsar(COL.nb),
-  chains = 2, cores = 2
+  chains = 4,
+  cores = 2
 )
 ```
 
-This fits the model in **Stan** using the log probability density function
-provided above. From the summary output below we see the both higher income and
-housing value predict *lower* crime rates in the neighborhood. Moreover, there
-seems to be substantial spatial correlation between adjacent neighborhoods as
-indicated by the `lagsar` parameter.
+The code above fits the model in **Stan** using a log probability density
+function equivalent to the `normal_lagsar_lpdf` function we defined above. In
+the summary output below we see that both higher income and higher housing value
+predict *lower* crime rates in the neighborhood. Moreover, there seems to be
+substantial spatial correlation between adjacent neighborhoods, as indicated by
+the `lagsar` parameter.
 
 ```{r}
 summary(fit)
@@ -294,9 +316,9 @@ summary(fit)
 
 ### Approximate LOO-CV
 
-For the purpose of obtaining approximate LOO-CV, we need to compute the
-pointwise log-likelihood values. For the above example, this can be done as
-follows using the recipe explained in the former sections.
+After fitting the model, the next step is to compute the pointwise
+log-likelihood values we need for approximate LOO-CV. To do this we will 
+use the recipe laid out in the previous sections.
 
 ```{r}
 params <- as.data.frame(fit)
@@ -306,11 +328,10 @@ S <- nrow(params)
 loglik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
 
 for (s in 1:S) {
-  eta <- params$b_Intercept[s] +
-    params$b_INC[s] * fit$data$INC +
-    params$b_HOVAL[s] * fit$data$HOVAL
-  IB <- diag(N) - params$lagsar[s] * fit$autocor$W
-  Cinv <- t(IB) %*% IB / params$sigma[s]^2
+  p <- params[s, ]
+  eta <- p$b_Intercept + p$b_INC * fit$data$INC + p$b_HOVAL * fit$data$HOVAL
+  IB <- diag(N) - p$lagsar * fit$autocor$W
+  Cinv <- t(IB) %*% IB / p$sigma^2
   g <- Cinv %*% (y - solve(IB, eta))
   cbar <- diag(Cinv)
   yloo[s, ] <- y - g / cbar
@@ -319,7 +340,7 @@ for (s in 1:S) {
 }
 ```
 
-The goodness of the PSIS-LOO approximation can be investigated graphically by
+The quality of the PSIS-LOO approximation can be investigated graphically by
 plotting the Pareto-k estimates of each observations. Ideally, they should not
 exceed $0.5$, but in practice the algorithm turns out to be robust up to values
 of $0.7$ (Vehtari et al, 2017ab). In the plot below, we see that primarily the
@@ -336,8 +357,8 @@ We can also check that the conditional leave-one-out predictive distribution
 equations work correctly, for instance, using the last posterior draw:
 
 ```{r, cache = FALSE}
-yloo_sub <- as.numeric(yloo[S, ])
-sdloo_sub <- as.numeric(sdloo[S, ])
+yloo_sub <- yloo[S, ]
+sdloo_sub <- sdloo[S, ]
 df <- data.frame(
   y = y, yloo = yloo_sub,
   ymin = yloo_sub - sdloo_sub * 2,
@@ -359,25 +380,26 @@ using exact LOO-CV in the upcoming section.
 ### Exact LOO-CV
 
 Exact LOO-CV for the above example is somewhat more involved, as we need to
-allow missing value imputation and re-fit the model $N$ times. First, we create
-a dummy model, which we can re-use afterwards.
+re-fit the model $N$ times and each time model the held-out data point as a parameter. First, we create an empty dummy model that we will update below
+as we loop over the observations.
 
 ```{r fit_dummy}
+# see help("mi", "brms") for details on the mi() usage
 fit_dummy <- brm(
   CRIME | mi() ~ INC + HOVAL, data = COL.OLD,
   autocor = cor_lagsar(COL.nb), chains = 0
 )
 ```
 
-Next, we fit the model $N$ times each time leaving out a single observation and
-compute the log predictive density for this observation. For obvious reasons,
-this takes some time but is necessary in order to validate the approximate
-LOO-CV results above.
+Next, we fit the model $N$ times, each time leaving out a single observation and
+then computing the log predictive density for that observation. For obvious
+reasons, this takes much longer than the approximation we computed above, but it
+is necessary in order to validate the approximate LOO-CV results above.
 
 ```{r exact-loo-cv, results="hide", message=FALSE, warning=FALSE, cache = TRUE}
 S <- 500
 res <- vector("list", N)
-loglik <- matrix(NA, nrow = S, ncol = N)
+loglik <- matrix(nrow = S, ncol = N)
 for (i in seq_len(N)) {
   dat_mi <- COL.OLD
   dat_mi$CRIME[i] <- NA
@@ -385,13 +407,12 @@ for (i in seq_len(N)) {
   params <- as.data.frame(fit_i)
   yloo <- sdloo <- rep(NA, S)
   for (s in seq_len(S)) {
+    p <- params[s, ]
     yt <- y
-    yt[i] <- params$Ymi[s]
-    eta <- params$b_Intercept[s] +
-      params$b_INC[s] * fit_i$data$INC +
-      params$b_HOVAL[s] * fit_i$data$HOVAL
-    IB <- diag(N) - params$lagsar[s] * fit_i$autocor$W
-    Cinv <- t(IB) %*% IB / params$sigma[s]^2
+    yt[i] <- p$Ymi
+    eta <- p$b_Intercept + p$b_INC * fit_i$data$INC + p$b_HOVAL * fit_i$data$HOVAL
+    IB <- diag(N) - p$lagsar * fit_i$autocor$W
+    Cinv <- t(IB) %*% IB / p$sigma^2
     g <- Cinv %*% (yt - solve(IB, eta))
     cbar <- diag(Cinv);
     yloo[s] <- yt[i] - g[i] / cbar[i]
@@ -407,13 +428,13 @@ res <- do.call(rbind, res)
 ```
 
 A first step in the validation of the pointwise predictive density is to compare
-the distribution of its implied response values for the left-out observation to
-the distribution of the $y_{\mathrm{mis}}$ posterior-predictive values estimated
+the distribution the implied response values for the left-out observation to the
+distribution of the $y_i^{\mathrm{mis}}$ posterior-predictive values estimated
 as part of the model. If the pointwise predictive density is correct, the two
 distributions should match very closely (up to sampling error). In the plot
 below, we overlay these two distributions for the first five observations and
 see that they match very closely (as is the case for all $49$ observations of
-the present example).
+in this example).
 
 ```{r yplots, fig.width=10, cache = FALSE}
 res_sub <- res[res$obs %in% 1:5, ]
@@ -422,8 +443,8 @@ ggplot(res_sub, aes(y, fill = type)) +
   facet_wrap("obs", scales = "free", ncol = 5)
 ```
 
-In the final step, we compute expected log predictive density (elpd) based on
-the exact LOO-CV and compare it to the approximate PSIS-LOO result computed
+In the final step, we compute the expected log predictive density (ELPD) based
+on the exact LOO-CV and compare it to the approximate PSIS-LOO result computed
 earlier.
 
 ```{r loo_exact, cache=FALSE}
@@ -432,21 +453,20 @@ log_mean_exp <- function(x) {
   max_x + log(sum(exp(x - max_x))) - log(length(x))
 }
 exact_elpds <- apply(loglik, 2, log_mean_exp)
-round(exact_elpd <- sum(exact_elpds),1)
-round(exact_looic <- -2 * exact_elpd,1)
+round(exact_elpd <- sum(exact_elpds), 1)
 ```
 
-The results of approximate and exact LOO-CV are similar but not as close as we
-would expect **if** there were no problematic observations. We can investigate
-this issue more closely by plotting the approximate against the exact pointwise
-elpds.
+The results of the approximate and exact LOO-CV are similar but not as close as
+we would expect **if** there were no problematic observations. We can
+investigate this issue more closely by plotting the approximate against the
+exact pointwise ELPD values.
 
 ```{r, fig.height=3}
 df <- data.frame(
   approx_elpd = psis_looic$pointwise[, "elpd_loo"],
   exact_elpd = exact_elpds
 )
-ggplot(data=df, aes(x = approx_elpd, y = exact_elpd)) +
+ggplot(df, aes(x = approx_elpd, y = exact_elpd)) +
   geom_point() +
   geom_abline() +
   xlab("Approximate elpds") +
@@ -454,17 +474,19 @@ ggplot(data=df, aes(x = approx_elpd, y = exact_elpd)) +
   xlim(c(-16, -3)) + ylim(c(-16, -3))
 ```
 
-Summing over the pointwise elpds leaving out the problematic fourth observation
-reveals practically equivalent results of approximate and exact LOO-CV:
+Summing over the pointwise ELPD values and leaving out the problematic fourth
+observation yields practically equivalent results for approximate and exact
+LOO-CV:
 
 ````{r}
-round(sum(psis_looic$pointwise[-4, "elpd_loo"]),1)
-round(sum(exact_elpds[-4]),1)	   
+round(sum(psis_looic$pointwise[-4, "elpd_loo"]), 1)
+round(sum(exact_elpds[-4]), 1)	   
 ```
 
-Accordingly, the differences found when including all observations do not
-indicate a bug in our implementation of the approximate LOO-CV but are rather
-the result of violations of its assumptions.
+From this we can conclude that the differences found when including *all*
+observations do not indicate a bug in our implementation of the approximate
+LOO-CV but rather a violation of its assumptions.
+
 
 ## Working with Stan directly
 
