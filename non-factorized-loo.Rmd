@@ -208,7 +208,7 @@ $$
 $$
 which corresponds to the following log PDF coded in **Stan**:
 
-```{c++,eval=FALSE}
+```{lpdf, eval=FALSE}
 /** 
  * Normal log-pdf for spatially lagged responses
  * 
@@ -467,11 +467,11 @@ round(exact_elpd, 1)
 ```
 
 The results of the approximate and exact LOO-CV are similar but not as close as
-we would expect **if** there were no problematic observations. We can
-investigate this issue more closely by plotting the approximate against the
-exact pointwise ELPD values.
+we would expect if there were no problematic observations. We can investigate
+this issue more closely by plotting the approximate against the exact pointwise
+ELPD values.
 
-```{r, fig.height=3}
+```{r, fig.height=5}
 df <- data.frame(
   approx_elpd = psis_loo$pointwise[, "elpd_loo"],
   exact_elpd = exact_elpds
@@ -515,7 +515,7 @@ is human readable and so we can use it to learn some of the essential aspects of
 Stan and the particular model we are implementing. The Stan program below is
 a slightly modified version of the code extracted via `stancode(fit_dummy)`:
 
-```{c++, eval=FALSE}
+```{r, brms-stan-code, eval=FALSE}
 // generated with brms 2.2.0
 functions {
 /** 
