@@ -592,7 +592,7 @@ responses `Y`, we define a new variable `Yl` which is equal to `Y` if the
 reponse is observed and equal to `Ymi` if the response is missing. The latter is
 in turn defined as a parameter and thus estimated along with all other paramters
 of the model. More details about missing value imputation in Stan can be found
-in Section 11 of the
+in the *Missing Data & Partially Known Parameters* section of the
 [Stan manual](http://mc-stan.org/users/documentation/index.html).
 
 Stan code extracted from brms is not only helpful when learning Stan, but can
