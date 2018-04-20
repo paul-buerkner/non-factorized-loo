@@ -26,12 +26,12 @@ $$
 p(y \,|\, \theta) = \prod_{i=1}^N p(y_i \,|\, \theta).
 $$
 
-The function $p$ will be either a probability density function or a probability
-mass function depending on whether we have a continuous or discrete outcome.
-When $p(y)$ can be factorized in this way, the conditional pointwise
-log-likelihood can be obtained easily by computing $\log p(y_i \,|\, \theta)$ for
-each $i$. We then save each of these individual contributions to the
-log-likelihood rather than simply summing them to obtain the total
+The function $p$ will be either a probability density function (PDF) or a
+probability mass function (PMF) depending on whether we have a continuous or
+discrete outcome. When $p(y)$ can be factorized in this way, the conditional
+pointwise log-likelihood can be obtained easily by computing $\log p(y_i \,|\,
+\theta)$ for each $i$. We then save each of these individual contributions to
+the log-likelihood rather than simply summing them to obtain the total
 log-likelihood.
 
 Unfortunately, the situation is more complicated for *non-factorized* models in
@@ -88,7 +88,6 @@ $$
   + \frac{1}{2}\log \bar{c}_{ii}
   - \frac{1}{2}\frac{g_i^2}{\bar{c}_{ii}}.
 $$
-
 (Note that Vehtari et al. (2016) has a typo in the corresponding Equation 34.)
 
 From these equations we can now derive a recipe for obtaining the conditional
@@ -207,8 +206,7 @@ If we have $\epsilon \sim {\mathrm N}(0, \,\sigma^2 I)$, it follows that
 $$
 (I - \rho W)y \sim {\mathrm N}(\eta, \sigma^2 I),
 $$
-which corresponds to the following log probability density function coded in
-**Stan**:
+which corresponds to the following log PDF coded in **Stan**:
 
 ```{c++,eval=FALSE}
 /** 
@@ -270,6 +268,7 @@ library(brms)
 library(loo)
 library(ggplot2)
 theme_set(theme_default())
+options(mc.cores = 2)
 
 # loads COL.OLD data frame and COL.nb neighbor list
 data(oldcol, package = "spdep") 
@@ -302,17 +301,15 @@ fit <- brm(
   CRIME ~ INC + HOVAL, 
   data = COL.OLD,
   autocor = cor_lagsar(COL.nb),
-  chains = 4,
-  cores = 2
+  chains = 4
 )
 ```
 
-The code above fits the model in **Stan** using a log probability density
-function equivalent to the `normal_lagsar_lpdf` function we defined above. In
-the summary output below we see that both higher income and higher housing value
-predict *lower* crime rates in the neighborhood. Moreover, there seems to be
-substantial spatial correlation between adjacent neighborhoods, as indicated by
-the `lagsar` parameter.
+The code above fits the model in **Stan** using a log PDF equivalent to the
+`normal_lagsar_lpdf` function we defined above. In the summary output below we
+see that both higher income and higher housing value predict lower crime rates
+in the neighborhood. Moreover, there seems to be substantial spatial correlation
+between adjacent neighborhoods, as indicated by the `lagsar` parameter.
 
 ```{r}
 summary(fit)
@@ -334,26 +331,28 @@ loglik <- yloo <- sdloo <- matrix(nrow = S, ncol = N)
 for (s in 1:S) {
   p <- params[s, ]
   eta <- p$b_Intercept + p$b_INC * fit$data$INC + p$b_HOVAL * fit$data$HOVAL
-  IB <- diag(N) - p$lagsar * fit$autocor$W
-  Cinv <- t(IB) %*% IB / p$sigma^2
-  g <- Cinv %*% (y - solve(IB, eta))
+  W_tilde <- diag(N) - p$lagsar * fit$autocor$W
+  Cinv <- t(W_tilde) %*% W_tilde / p$sigma^2
+  g <- Cinv %*% (y - solve(W_tilde, eta))
   cbar <- diag(Cinv)
   yloo[s, ] <- y - g / cbar
   sdloo[s, ] <- sqrt(1 / cbar)
   loglik[s, ] <- dnorm(y, yloo[s, ], sdloo[s, ], log = TRUE)
 }
+
+# use psis() from the loo package
+log_ratios <- -loglik
+psis_result <- psis(log_ratios)
 ```
 
 The quality of the PSIS-LOO approximation can be investigated graphically by
-plotting the Pareto-k estimates of each observations. Ideally, they should not
+plotting the Pareto-k estimate for each observation. Ideally, they should not
 exceed $0.5$, but in practice the algorithm turns out to be robust up to values
-of $0.7$ (Vehtari et al, 2017ab). In the plot below, we see that primarily the
-fourth observation is problematic and may thus reduce the accuracy of the LOO-CV
+of $0.7$ (Vehtari et al, 2017ab). In the plot below, we see that the fourth
+observation is problematic and so may reduce the accuracy of the LOO-CV
 approximation.
 
 ```{r, cache = FALSE}
-log_ratios <- -loglik
-psis_result <- psis(log_ratios)
 plot(psis_result, label_points = TRUE)
 ```
 
@@ -364,7 +363,8 @@ equations work correctly, for instance, using the last posterior draw:
 yloo_sub <- yloo[S, ]
 sdloo_sub <- sdloo[S, ]
 df <- data.frame(
-  y = y, yloo = yloo_sub,
+  y = y, 
+  yloo = yloo_sub,
   ymin = yloo_sub - sdloo_sub * 2,
   ymax = yloo_sub + sdloo_sub * 2
 )
@@ -387,7 +387,7 @@ Exact LOO-CV for the above example is somewhat more involved, as we need to
 re-fit the model $N$ times and each time model the held-out data point as a parameter. First, we create an empty dummy model that we will update below
 as we loop over the observations.
 
-```{r fit_dummy}
+```{r fit_dummy, cache = TRUE}
 # see help("mi", "brms") for details on the mi() usage
 fit_dummy <- brm(
   CRIME | mi() ~ INC + HOVAL, data = COL.OLD,
@@ -415,9 +415,9 @@ for (i in seq_len(N)) {
     yt <- y
     yt[i] <- p$Ymi
     eta <- p$b_Intercept + p$b_INC * fit_i$data$INC + p$b_HOVAL * fit_i$data$HOVAL
-    IB <- diag(N) - p$lagsar * fit_i$autocor$W
-    Cinv <- t(IB) %*% IB / p$sigma^2
-    g <- Cinv %*% (yt - solve(IB, eta))
+    W_tilde <- diag(N) - p$lagsar * fit_i$autocor$W
+    Cinv <- t(W_tilde) %*% W_tilde / p$sigma^2
+    g <- Cinv %*% (yt - solve(W_tilde, eta))
     cbar <- diag(Cinv);
     yloo[s] <- yt[i] - g[i] / cbar[i]
     sdloo[s] <- sqrt(1 / cbar[i])
@@ -432,13 +432,13 @@ res <- do.call(rbind, res)
 ```
 
 A first step in the validation of the pointwise predictive density is to compare
-the distribution the implied response values for the left-out observation to the
-distribution of the $y_i^{\mathrm{mis}}$ posterior-predictive values estimated
-as part of the model. If the pointwise predictive density is correct, the two
-distributions should match very closely (up to sampling error). In the plot
-below, we overlay these two distributions for the first five observations and
-see that they match very closely (as is the case for all $49$ observations of
-in this example).
+the distribution of the implied response values for the left-out observation to
+the distribution of the $y_i^{\mathrm{mis}}$ posterior-predictive values
+estimated as part of the model. If the pointwise predictive density is correct,
+the two distributions should match very closely (up to sampling error). In the
+plot below, we overlay these two distributions for the first five observations
+and see that they match very closely (as is the case for all $49$ observations
+of in this example).
 
 ```{r yplots, fig.width=10, cache = FALSE}
 res_sub <- res[res$obs %in% 1:5, ]
@@ -453,11 +453,13 @@ earlier.
 
 ```{r loo_exact, cache=FALSE}
 log_mean_exp <- function(x) {
+  # more stable than log(mean(exp(x)))
   max_x <- max(x)
   max_x + log(sum(exp(x - max_x))) - log(length(x))
 }
 exact_elpds <- apply(loglik, 2, log_mean_exp)
-round(exact_elpd <- sum(exact_elpds), 1)
+exact_elpd <- sum(exact_elpds)
+round(exact_elpd, 1)
 ```
 
 The results of the approximate and exact LOO-CV are similar but not as close as
@@ -487,8 +489,8 @@ round(sum(psis_looic$pointwise[-4, "elpd_loo"]), 1)
 round(sum(exact_elpds[-4]), 1)	   
 ```
 
-From this we can conclude that the differences found when including *all*
-observations do not indicate a bug in our implementation of the approximate
+From this we can conclude that the difference found when including *all*
+observations does not indicate a bug in our implementation of the approximate
 LOO-CV but rather a violation of its assumptions.
 
 
@@ -574,11 +576,11 @@ generated quantities {
 }"
 ```
 
-Here, we want to focus on two aspects of the Stan code. First, the
+Here we want to focus on two aspects of the Stan code. First, the
 log-likelihood is implemented by means of a user-defined function, which we
-called `normal_lagsar_lpdf`. It implements the log-likelihood of the lag-SAR
+call `normal_lagsar_lpdf`. It implements the log-likelihood of the lag-SAR
 model described above in a (hopefully) efficient and numerically stable way. The
-`_lpdf` suffix is important to tell Stan that this is a log probability density
+`_lpdf` suffix informs Stan that this is a log probability density
 function. Second, the above Stan code nicely illustrates how to set up missing
 value imputation. Instead of just computing the log-likelihood for the observed
 responses `Y`, we define a new variable `Yl` which is equal to `Y` if the
@@ -593,7 +595,7 @@ also drastically speed up the specification of models in Stan which are not
 support by brms. Suppose that brms can fit a model similar but not identical to
 the desired model. Then, one can let brms generate the Stan code of the similar
 model and customize it based on ones own needs. In this case, it is often
-unpratical to use `stancode()` on a fitted model object, because we actually
+impractical to use `stancode()` on a fitted model object, because we actually
 don't need the fitted model. Instead, we can use `make_stancode()` to generate
 the Stan code directly. The appropriate data can be prepared (and then manually
 amended if needed) via `make_standata()`. Both Stan code and data can be passed
@@ -606,7 +608,7 @@ in order to fit the model.
 In summary, we have shown how to set up and validate approximate and exact
 LOO-CV for non-factorized multivariate normal models using brms and Stan. As an
 example we considered spatial SAR models, but the presented recipe applies to
-any model which can be expressed in terms of a multivariate normal likelihood.
+any model that can be expressed in terms of a multivariate normal likelihood.
 
 <br />
 
