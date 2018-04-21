@@ -279,6 +279,8 @@ library(loo)
 library(ggplot2)
 theme_set(theme_default())
 options(mc.cores = 2)
+SEED <- 10001 
+set.seed(SEED) # only sets seed for R (seed for Stan set later)
 
 # loads COL.OLD data frame and COL.nb neighbor list
 data(oldcol, package = "spdep") 
@@ -311,7 +313,8 @@ fit <- brm(
   CRIME ~ INC + HOVAL, 
   data = COL.OLD,
   autocor = cor_lagsar(COL.nb),
-  chains = 4
+  chains = 4,
+  seed = SEED
 )
 ```
 
