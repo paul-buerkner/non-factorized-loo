@@ -63,10 +63,10 @@ $$
 y \sim {\mathrm N}(0, \, K+\sigma^2 I),
 $$
 
-where $I$ is the identity matrix of appropriate dimension.
+where $I$ is the identity matrix of appropriate dimension and $C = K+\sigma^2 I$ is the covariance matrix of the model.
 
 Fortunately, Sundararajan and Keerthi's results also generalize to the case of
-an arbitrary nondegenerate invertible covariance matrix $C$. For such models,
+an arbitrary invertible covariance matrix $C$. For such models, 
 the LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
   \mu_{\tilde{y},-i} &= y_i-\bar{c}_{ii}^{-1} g_i \nonumber \\
@@ -412,7 +412,7 @@ fit_dummy <- brm(
 Next, we fit the model $N$ times, each time leaving out a single observation and
 then computing the log predictive density for that observation. For obvious
 reasons, this takes much longer than the approximation we computed above, but it
-is necessary in order to validate the approximate LOO-CV results above.
+is necessary in order to validate the approximate LOO-CV results.
 
 ```{r exact-loo-cv, results="hide", message=FALSE, warning=FALSE, cache = TRUE}
 S <- 500
