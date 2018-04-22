@@ -43,12 +43,12 @@ pointwise log-likelihood can be obtained easily by computing $\log p(y_i \,|\,
 the log-likelihood rather than simply summing them to obtain the total
 log-likelihood.
 
-Unfortunately, the situation is more complicated for *non-factorized* models in
-which response values are not conditionally independent. When there is residual
-dependency even after accounting for the model parameters $\theta$, the
-conditional pointwise log-likelihood has the general form
-$\log p(y_i \,|\, y_{-i}, \theta)$, where $y_{-i}$ denotes all response values
-except observation $i$.
+The situation is more complicated for *non-factorized* models in which
+response values are not conditionally independent. When there is
+residual dependency even after accounting for the model parameters
+$\theta$, the conditional pointwise log-likelihood has the general
+form $\log p(y_i \,|\, y_{-i}, \theta)$, where $y_{-i}$ denotes all
+response values except observation $i$.
 
 ## LOO-CV for multivariate normal models
 
@@ -65,7 +65,7 @@ $$
 
 where $I$ is the identity matrix of appropriate dimension and $C = K+\sigma^2 I$ is the covariance matrix of the model.
 
-Fortunately, Sundararajan and Keerthi's results also generalize to the case of
+Sundararajan and Keerthi's results also generalize to the case of
 an arbitrary invertible covariance matrix $C$. For such models, 
 the LOO predictive mean and standard deviation can be computed as follows:
 \begin{align}
@@ -146,9 +146,10 @@ the Pareto $k$ diagnostic (Vehtari et al, 2017b) indicates an unstable
 approximation, we need to consider how we might to do _exact_ leave-one-out CV
 for a non-factorizable model. In the case of a Gaussian process that has the
 marginalization property, we could just drop the one row and column of $C$
-corresponding to the held out out observation. This does not hold in general,
-however, and to keep the original prior we need to maintain the full covariance
-matrix $C$ even when one of the observations is left out.
+corresponding to the held out out observation. This does not hold in
+general for multivariate normal models, however, and to keep the
+original prior we may need to maintain the full covariance matrix $C$
+even when one of the observations is left out.
 
 The solution is to model $y_i$ as a missing observation and estimate it along
 with all of the other model parameters. For a conditional multivariate normal
@@ -278,6 +279,8 @@ library(loo)
 library(ggplot2)
 theme_set(theme_default())
 options(mc.cores = 2)
+SEED <- 10001 
+set.seed(SEED) # only sets seed for R (seed for Stan set later)
 
 # loads COL.OLD data frame and COL.nb neighbor list
 data(oldcol, package = "spdep") 
@@ -310,7 +313,8 @@ fit <- brm(
   CRIME ~ INC + HOVAL, 
   data = COL.OLD,
   autocor = cor_lagsar(COL.nb),
-  chains = 4
+  chains = 4,
+  seed = SEED
 )
 ```
 
