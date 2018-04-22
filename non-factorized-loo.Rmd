@@ -68,11 +68,14 @@ where $I$ is the identity matrix of appropriate dimension and $C = K+\sigma^2 I$
 Sundararajan and Keerthi's results also generalize to the case of
 an arbitrary invertible covariance matrix $C$. For such models, 
 the LOO predictive mean and standard deviation can be computed as follows:
+
 \begin{align}
   \mu_{\tilde{y},-i} &= y_i-\bar{c}_{ii}^{-1} g_i \nonumber \\
   \sigma_{\tilde{y},-i} &= \sqrt{\bar{c}_{ii}^{-1}},
 \end{align}
+
 where $g_i$ and $\bar{c}_{ii}$ are
+
 \begin{align}
   g_i &= \left[C^{-1} y\right]_i \nonumber \\
   \bar{c}_{ii} &= \left[C^{-1}\right]_{ii}.
@@ -141,15 +144,16 @@ referred to as PSIS-LOO (Vehtari et al, 2017a).
 ### Exact LOO-CV with re-fitting
 
 In order to validate the approximate LOO procedure, and also in order to allow
-exact computations to be made for a small number of leave-one-out folds for which
-the Pareto $k$ diagnostic (Vehtari et al, 2017b) indicates an unstable
-approximation, we need to consider how we might to do _exact_ leave-one-out CV
-for a non-factorizable model. In the case of a Gaussian process that has the
-marginalization property, we could just drop the one row and column of $C$
-corresponding to the held out out observation. This does not hold in
-general for multivariate normal models, however, and to keep the
-original prior we may need to maintain the full covariance matrix $C$
-even when one of the observations is left out.
+exact computations to be made for a small number of leave-one-out folds for
+which the Pareto $k$
+[diagnostic](http://mc-stan.org/loo/reference/pareto-k-diagnostic.html) 
+(Vehtari et al, 2017b) indicates an unstable approximation, we need to consider
+how we might to do _exact_ leave-one-out CV for a non-factorizable model. In the
+case of a Gaussian process that has the marginalization property, we could just
+drop the one row and column of $C$ corresponding to the held out out
+observation. This does not hold in general for multivariate normal models,
+however, and to keep the original prior we may need to maintain the full
+covariance matrix $C$ even when one of the observations is left out.
 
 The solution is to model $y_i$ as a missing observation and estimate it along
 with all of the other model parameters. For a conditional multivariate normal
@@ -249,13 +253,17 @@ real normal_lagsar_lpdf(vector y, vector mu, real sigma,
 For the purpose of computing LOO-CV, it makes sense to rewrite the SAR model 
 in slightly different form. Conditional on $\rho$, $\eta$, and $\sigma$, 
 if we write
+
 \begin{align}
 y-(I-\rho W)^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(I-\rho W)^{-1}(I-\rho W)^{-T}),
 \end{align}
+
 or more compactly, with $\widetilde{W}=(I-\rho W)$,
+
 \begin{align}
 y-\widetilde{W}^{-1}\eta &\sim {\mathrm N}(0, \sigma^2(\widetilde{W}^{T}\widetilde{W})^{-1}),
 \end{align}
+
 then this has the same form as the zero mean Gaussian process from above.
 Accordingly, we can compute the leave-one-out predictive densities with the
 equations from Sundararajan and Keerthi (2001), replacing $y$ with
