@@ -1,5 +1,5 @@
 ---
-title: "Leave-one-out cross-validation for non-factorized models"
+title: "Leave-one-out cross-validation for non-factorizable models"
 author: Aki Vehtari, Paul Buerkner and Jonah Gabry
 output:
   html_document: default
@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
 When computing approximate leave-one-out cross-validation (LOO-CV) after
 fitting a Bayesian model, the first step is to calculate the *pointwise*
 log-likelihood for every response value $y_i, \: i = 1, \ldots, N$.
-This is straightforward for *factorized* models in which response values are
+This is straightforward for *factorizable* models in which response values are
 conditionally independent given the model parameters $\theta$ and the likelihood
 can be written in the familiar form
 
@@ -43,7 +43,7 @@ pointwise log-likelihood can be obtained easily by computing $\log p(y_i \,|\,
 the log-likelihood rather than simply summing them to obtain the total
 log-likelihood.
 
-The situation is more complicated for *non-factorized* models in which
+The situation is more complicated for *non-factorizable* models in which
 response values are not conditionally independent. When there is
 residual dependency even after accounting for the model parameters
 $\theta$, the conditional pointwise log-likelihood has the general
@@ -52,7 +52,7 @@ response values except observation $i$.
 
 ## LOO-CV for multivariate normal models
 
-Although computing the pointwise log-likelihood for non-factorized models is
+Although computing the pointwise log-likelihood for non-factorizable models is
 often impossible, there is a large class of multivariate normal models
 for which an analytical solution is available. These equations were initially
 derived by Sundararajan and Keerthi (2001) with a focus on the special case of a
@@ -194,7 +194,7 @@ $p(\theta\,|\,y_{\mathrm{mis}(i)})$.
 
 ## Lagged SAR models
 
-A common non-factorized multivariate normal model is the simultaneously
+A common non-factorizable multivariate normal model is the simultaneously
 autoregressive (SAR) model, which is frequently used for spatially correlated
 data. The lagged SAR model is defined as
 $$
@@ -522,7 +522,7 @@ LOO-CV but rather a violation of its assumptions.
 
 So far, we have specified the models in brms and only used Stan implicitely
 behind the scenes. This allowed us to focus on the primary purpose of validating
-approximate LOO-CV for non-factorized models. However, we would also like to
+approximate LOO-CV for non-factorizable models. However, we would also like to
 show how everything can be set up in Stan directly. The Stan code brms generates
 is human readable and so we can use it to learn some of the essential aspects of
 Stan and the particular model we are implementing. The Stan program below is
@@ -633,7 +633,7 @@ and `data` arguments.
 ## Conclusion
 
 In summary, we have shown how to set up and validate approximate and exact
-LOO-CV for non-factorized multivariate normal models using Stan with the
+LOO-CV for non-factorizable multivariate normal models using Stan with the
 **brms** and **loo** packages. Although we focused on the particular example of
 a spatial SAR model, the presented recipe applies more generally to models that
 can be expressed in terms of a multivariate normal likelihood.
